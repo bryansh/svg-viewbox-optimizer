@@ -1,5 +1,7 @@
 # SVG ViewBox Optimizer
 
+[![CI](https://github.com/bryansh/svg-viewbox-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/bryansh/svg-viewbox-optimizer/actions/workflows/ci.yml)
+
 A command-line tool that optimizes SVG viewBox attributes by calculating the minimal bounding box around all visible and animated content. This can significantly reduce the SVG coordinate space, improving rendering performance and reducing file sizes.
 
 ## Features

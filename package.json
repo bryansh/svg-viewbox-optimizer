@@ -22,14 +22,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/svg-viewbox-optimizer.git"
+    "url": "git+https://github.com/bryansh/svg-viewbox-optimizer.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/svg-viewbox-optimizer/issues"
+    "url": "https://github.com/bryansh/svg-viewbox-optimizer/issues"
   },
-  "homepage": "https://github.com/yourusername/svg-viewbox-optimizer#readme",
+  "homepage": "https://github.com/bryansh/svg-viewbox-optimizer#readme",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "chalk": "^4.1.2",
