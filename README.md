@@ -11,6 +11,7 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 - 🔍 **Smart symbol handling** - correctly processes `<use>` elements and nested symbols
 - 🔧 **Advanced transform support** - handles translate, scale, rotate, skew, and matrix transforms
 - 🎭 **Generic container detection** - automatically identifies and processes container vs. content elements
+- 🧠 **Enhanced animation integration** - sophisticated browser-side animation processing with normalized value parsing
 - 📊 **Detailed reporting** - shows space savings and element analysis
 - 🛡️ **Safe defaults** - adds configurable padding around content
 - 🏗️ **Modular architecture** - extensible design for complex SVG processing

@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.0] - 2024-12-XX
+## [1.1.0] - 2025-07-19
 
 ### Added
 - **Modular Architecture**: Separated concerns into 4 specialized modules
@@ -22,6 +22,12 @@ All notable changes to this project will be documented in this file.
   - Support for `calcMode` (linear, discrete, paced, spline)
   - Enhanced keyframes parsing with proper defaults
   - Support for `animateTransform`, `animate`, `animateMotion`
+
+- **Enhanced Animation Integration**:
+  - Sophisticated browser-side animation processing
+  - Fixed NaN bounds calculation in complex animations
+  - Proper object handling for matrix transformations
+  - Improved bounds calculation for all animation types
 
 - **Generic Container Detection**:
   - Automatic symbol container identification
@@ -44,7 +50,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [1.0.0] - 2024-12-XX
+## [1.0.0] - 2024-12-01
 
 ### Added
 - Initial release with basic SVG viewBox optimization

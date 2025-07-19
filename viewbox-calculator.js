@@ -27,18 +27,109 @@ async function calculateOptimization (inputFile, options = {}) {
 
     const page = await browser.newPage()
 
-    // For now, let's use a simpler approach that still removes hardcoded logic
-    // but works within the browser context without complex module loading
+    // Inject our enhanced animation analysis modules into browser context
+    const animationAnalyzerCode = fs.readFileSync('./animation-analyzer.js', 'utf8')
+      .replace(/const \{ Matrix2D \} = require\('.*'\)/, '') // Remove Node.js require
+      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
 
     // Capture console output
     if (options.debug) {
       page.on('console', msg => console.log('Browser console:', msg.text()))
     }
 
-    // Create HTML page with the SVG
+    // Create HTML page with enhanced animation analysis
     const html = `
       <!DOCTYPE html>
       <html>
+      <head>
+        <script>
+          // Inject Matrix2D class for browser use
+          class Matrix2D {
+            constructor(a = 1, b = 0, c = 0, d = 1, e = 0, f = 0) {
+              this.a = a; this.b = b; this.c = c; this.d = d; this.e = e; this.f = f;
+            }
+            
+            static translate(tx, ty = 0) {
+              return new Matrix2D(1, 0, 0, 1, tx, ty);
+            }
+            
+            static scale(sx, sy = sx) {
+              return new Matrix2D(sx, 0, 0, sy, 0, 0);
+            }
+            
+            static rotate(angle, cx = 0, cy = 0) {
+              const rad = (angle * Math.PI) / 180;
+              const cos = Math.cos(rad);
+              const sin = Math.sin(rad);
+              if (cx === 0 && cy === 0) {
+                return new Matrix2D(cos, sin, -sin, cos, 0, 0);
+              } else {
+                // Rotate around point: translate to origin, rotate, translate back
+                const t1 = Matrix2D.translate(cx, cy);
+                const r = new Matrix2D(cos, sin, -sin, cos, 0, 0);
+                const t2 = Matrix2D.translate(-cx, -cy);
+                return t1.multiply(r).multiply(t2);
+              }
+            }
+            
+            static skewX(angle) {
+              const rad = (angle * Math.PI) / 180;
+              return new Matrix2D(1, 0, Math.tan(rad), 1, 0, 0);
+            }
+            
+            static skewY(angle) {
+              const rad = (angle * Math.PI) / 180;
+              return new Matrix2D(1, Math.tan(rad), 0, 1, 0, 0);
+            }
+            
+            static identity() {
+              return new Matrix2D();
+            }
+            
+            multiply(other) {
+              return new Matrix2D(
+                this.a * other.a + this.c * other.b,
+                this.b * other.a + this.d * other.b,
+                this.a * other.c + this.c * other.d,
+                this.b * other.c + this.d * other.d,
+                this.a * other.e + this.c * other.f + this.e,
+                this.b * other.e + this.d * other.f + this.f
+              );
+            }
+            
+            transformPoint(x, y) {
+              return {
+                x: this.a * x + this.c * y + this.e,
+                y: this.b * x + this.d * y + this.f
+              };
+            }
+            
+            transformBounds(bbox) {
+              const corners = [
+                { x: bbox.x, y: bbox.y },
+                { x: bbox.x + bbox.width, y: bbox.y },
+                { x: bbox.x, y: bbox.y + bbox.height },
+                { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+              ];
+              
+              const transformedCorners = corners.map(corner => this.transformPoint(corner.x, corner.y));
+              
+              const xs = transformedCorners.map(c => c.x);
+              const ys = transformedCorners.map(c => c.y);
+              
+              return {
+                x: Math.min(...xs),
+                y: Math.min(...ys),
+                width: Math.max(...xs) - Math.min(...xs),
+                height: Math.max(...ys) - Math.min(...ys)
+              };
+            }
+          }
+          
+          // Enhanced animation analysis functions (browser-compatible)
+          ${animationAnalyzerCode}
+        </script>
+      </head>
       <body>
         ${svgContent}
       </body>
@@ -121,28 +212,46 @@ async function calculateOptimization (inputFile, options = {}) {
         return result
       }
 
-      // Generic animation analysis
+      // Enhanced animation analysis using injected modules
       function analyzeElementAnimations (element) {
+        // Use the sophisticated animation analyzer that was injected
+        if (typeof findElementAnimations === 'function') {
+          return findElementAnimations(element, svg, debug)
+        }
+        
+        // Fallback to simple analysis if injection failed
         const animations = []
-        const animatedElements = svg.querySelectorAll('animateTransform')
+        const animatedElements = svg.querySelectorAll('animateTransform, animate, animateMotion')
 
         animatedElements.forEach(anim => {
           if (anim.parentElement === element) {
-            const values = anim.getAttribute('values')
-            const type = anim.getAttribute('type')
+            // Use enhanced analysis if available
+            if (typeof analyzeAnimation === 'function') {
+              const analysis = analyzeAnimation(anim, debug)
+              if (analysis) {
+                animations.push(analysis)
+              }
+            } else {
+              // Simple fallback for translate only
+              const values = anim.getAttribute('values')
+              const type = anim.getAttribute('type')
 
-            if (type === 'translate' && values) {
-              const translateValues = values.split(';').map(v => {
-                const [x, y] = v.trim().split(/\s+/).map(Number)
-                return { x: x || 0, y: y || 0 }
-              })
+              if (type === 'translate' && values) {
+                const translateValues = values.split(';').map(v => {
+                  const [x, y] = v.trim().split(/\s+/).map(Number)
+                  return { x: x || 0, y: y || 0 }
+                })
 
-              const minTransX = Math.min(...translateValues.map(t => t.x))
-              const maxTransX = Math.max(...translateValues.map(t => t.x))
-              const minTransY = Math.min(...translateValues.map(t => t.y))
-              const maxTransY = Math.max(...translateValues.map(t => t.y))
+                const minTransX = Math.min(...translateValues.map(t => t.x))
+                const maxTransX = Math.max(...translateValues.map(t => t.x))
+                const minTransY = Math.min(...translateValues.map(t => t.y))
+                const maxTransY = Math.max(...translateValues.map(t => t.y))
 
-              animations.push({ minTransX, maxTransX, minTransY, maxTransY })
+                animations.push({ 
+                  type: 'simple', 
+                  minTransX, maxTransX, minTransY, maxTransY 
+                })
+              }
             }
           }
         })
@@ -325,28 +434,123 @@ async function calculateOptimization (inputFile, options = {}) {
       let globalMaxX = -Infinity
       let globalMaxY = -Infinity
 
-      elementBounds.forEach(item => {
+      if (debug) {
+        console.log(`Starting global bounds calculation with ${elementBounds.length} elements`)
+      }
+
+      elementBounds.forEach((item, index) => {
+        if (debug) {
+          console.log(`Element ${index}: hasAnimations=${item.hasAnimations}, bounds=x:${item.bounds.x}, y:${item.bounds.y}, w:${item.bounds.width}, h:${item.bounds.height}`)
+        }
         const bounds = item.bounds
 
         if (item.hasAnimations) {
-          // Calculate bounds with animation extremes
+          // Handle both enhanced and simple animation formats
           item.animations.forEach(anim => {
-            const minX = bounds.x + anim.minTransX
-            const maxX = bounds.x + bounds.width + anim.maxTransX
-            const minY = bounds.y + anim.minTransY
-            const maxY = bounds.y + bounds.height + anim.maxTransY
+            if (anim.type === 'animateTransform') {
+              // Enhanced format: use matrix-based bounds calculation
+              anim.transforms.forEach(transform => {
+                const matrix = transform.matrix
+                if (debug) {
+                  console.log(`    Transform matrix: a=${matrix.a}, e=${matrix.e}, f=${matrix.f}`)
+                  console.log(`    Base bounds: x=${bounds.x}, y=${bounds.y}, w=${bounds.width}, h=${bounds.height}`)
+                }
+                
+                const animatedBounds = matrix.transformBounds ? matrix.transformBounds(bounds) : bounds
+                
+                if (debug) {
+                  console.log(`    Animated bounds: x=${animatedBounds.x}, y=${animatedBounds.y}, w=${animatedBounds.width}, h=${animatedBounds.height}`)
+                }
+                
+                globalMinX = Math.min(globalMinX, animatedBounds.x)
+                globalMinY = Math.min(globalMinY, animatedBounds.y)
+                globalMaxX = Math.max(globalMaxX, animatedBounds.x + animatedBounds.width)
+                globalMaxY = Math.max(globalMaxY, animatedBounds.y + animatedBounds.height)
+                
+                if (debug) {
+                  console.log(`    Updated global: minX=${globalMinX}, minY=${globalMinY}, maxX=${globalMaxX}, maxY=${globalMaxY}`)
+                }
+              })
+            } else if (anim.type === 'animate') {
+              // Enhanced format: handle attribute animations
+              if (debug) {
+                console.log(`    Processing animate: ${anim.attributeName} with ${anim.values.length} values`)
+              }
+              anim.values.forEach(valueFrame => {
+                let adjustedBounds = { 
+                  x: bounds.x, 
+                  y: bounds.y, 
+                  width: bounds.width, 
+                  height: bounds.height 
+                }
+                
+                switch (anim.attributeName) {
+                  case 'x':
+                    adjustedBounds.x = valueFrame.value
+                    break
+                  case 'y':
+                    adjustedBounds.y = valueFrame.value
+                    break
+                  case 'width':
+                    adjustedBounds.width = valueFrame.value
+                    break
+                  case 'height':
+                    adjustedBounds.height = valueFrame.value
+                    break
+                  default:
+                    // For other attributes like stroke-width, opacity, etc.
+                    // don't change bounds - just use the original bounds
+                    if (debug) {
+                      console.log(`      Ignoring non-geometric attribute: ${anim.attributeName}`)
+                    }
+                    break
+                }
+                
+                if (debug) {
+                  console.log(`      Adjusted bounds: x=${adjustedBounds.x}, y=${adjustedBounds.y}, w=${adjustedBounds.width}, h=${adjustedBounds.height}`)
+                }
+                
+                globalMinX = Math.min(globalMinX, adjustedBounds.x)
+                globalMinY = Math.min(globalMinY, adjustedBounds.y)
+                globalMaxX = Math.max(globalMaxX, adjustedBounds.x + adjustedBounds.width)
+                globalMaxY = Math.max(globalMaxY, adjustedBounds.y + adjustedBounds.height)
+                
+                if (debug) {
+                  console.log(`      Updated global from animate: minX=${globalMinX}, minY=${globalMinY}, maxX=${globalMaxX}, maxY=${globalMaxY}`)
+                }
+              })
+            } else if (anim.type === 'animateMotion') {
+              // Enhanced format: handle motion path animations
+              const motionBounds = anim.approximateBounds
+              globalMinX = Math.min(globalMinX, bounds.x + motionBounds.minX)
+              globalMinY = Math.min(globalMinY, bounds.y + motionBounds.minY)
+              globalMaxX = Math.max(globalMaxX, bounds.x + bounds.width + motionBounds.maxX)
+              globalMaxY = Math.max(globalMaxY, bounds.y + bounds.height + motionBounds.maxY)
+            } else if (anim.type === 'simple' || anim.minTransX !== undefined) {
+              // Simple format: fallback for basic translate animations
+              const minX = bounds.x + (anim.minTransX || 0)
+              const maxX = bounds.x + bounds.width + (anim.maxTransX || 0)
+              const minY = bounds.y + (anim.minTransY || 0)
+              const maxY = bounds.y + bounds.height + (anim.maxTransY || 0)
 
-            globalMinX = Math.min(globalMinX, minX)
-            globalMinY = Math.min(globalMinY, minY)
-            globalMaxX = Math.max(globalMaxX, maxX)
-            globalMaxY = Math.max(globalMaxY, maxY)
+              globalMinX = Math.min(globalMinX, minX)
+              globalMinY = Math.min(globalMinY, minY)
+              globalMaxX = Math.max(globalMaxX, maxX)
+              globalMaxY = Math.max(globalMaxY, maxY)
+            }
           })
         } else {
           // Static element
+          if (debug) {
+            console.log(`  Static element bounds: x=${bounds.x}, y=${bounds.y}, w=${bounds.width}, h=${bounds.height}`)
+          }
           globalMinX = Math.min(globalMinX, bounds.x)
           globalMinY = Math.min(globalMinY, bounds.y)
           globalMaxX = Math.max(globalMaxX, bounds.x + bounds.width)
           globalMaxY = Math.max(globalMaxY, bounds.y + bounds.height)
+          if (debug) {
+            console.log(`    Updated global from static: minX=${globalMinX}, minY=${globalMinY}, maxX=${globalMaxX}, maxY=${globalMaxY}`)
+          }
         }
       })
 
