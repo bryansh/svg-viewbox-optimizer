@@ -477,7 +477,7 @@ describe('SVG Optimization', () => {
       // - Rect at (250,250) with 50x50
       expect(result.content.minX).toBeLessThan(55) // First foreignObject
       expect(result.content.maxX).toBeGreaterThan(335) // Second foreignObject at 220+120=340
-      
+
       // Should achieve optimization from original 400x400
       expect(result.savings.percentage).toBeGreaterThan(25)
     })

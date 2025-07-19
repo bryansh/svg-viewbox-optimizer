@@ -3,14 +3,16 @@
  * Handles filter, mask, and clipPath effects that can impact element bounds
  */
 
+/* global getComputedStyle */
+
 /**
  * Parse filter effects and calculate bounds expansion
  */
-function analyzeFilterEffects(element, rootSvg, debug = false) {
+function analyzeFilterEffects (element, rootSvg, debug = false) {
   const filterAttr = element.getAttribute('filter')
   const filterStyle = element.style.filter
   const filterComputed = getComputedStyle(element).filter
-  
+
   const filter = filterAttr || filterStyle || filterComputed
 
   if (!filter || filter === 'none') {
@@ -31,7 +33,7 @@ function analyzeFilterEffects(element, rootSvg, debug = false) {
   if (urlMatch) {
     const filterId = urlMatch[1]
     const filterElement = rootSvg.querySelector(`#${filterId}`)
-    
+
     if (filterElement) {
       expansion = analyzeFilterDefinition(filterElement, debug)
     }
@@ -46,7 +48,7 @@ function analyzeFilterEffects(element, rootSvg, debug = false) {
 /**
  * Analyze SVG filter definition element
  */
-function analyzeFilterDefinition(filterElement, debug = false) {
+function analyzeFilterDefinition (filterElement, debug = false) {
   // Get filter region attributes (x, y, width, height)
   const x = parseFloat(filterElement.getAttribute('x') || '-10%')
   const y = parseFloat(filterElement.getAttribute('y') || '-10%')
@@ -72,7 +74,7 @@ function analyzeFilterDefinition(filterElement, debug = false) {
 
   primitives.forEach(primitive => {
     const tagName = primitive.tagName.toLowerCase()
-    
+
     if (tagName === 'fegaussianblur') {
       const stdDeviation = parseFloat(primitive.getAttribute('stdDeviation') || '0')
       maxBlur = Math.max(maxBlur, stdDeviation * 3) // 3 standard deviations
@@ -105,11 +107,11 @@ function analyzeFilterDefinition(filterElement, debug = false) {
   // The percentage expansion is relative to element size, pixel expansion is absolute
   const pixelExpansionX = Math.abs(offsetX) + maxBlur + dilate
   const pixelExpansionY = Math.abs(offsetY) + maxBlur + dilate
-  
+
   return {
-    x: pixelExpansionX || xExpansion,  // Use pixel if available, else percentage
+    x: pixelExpansionX || xExpansion, // Use pixel if available, else percentage
     y: pixelExpansionY || yExpansion,
-    width: pixelExpansionX * 2 || widthExpansion,  // Expand on both sides
+    width: pixelExpansionX * 2 || widthExpansion, // Expand on both sides
     height: pixelExpansionY * 2 || heightExpansion,
     isPixelBased: pixelExpansionX > 0 || pixelExpansionY > 0
   }
@@ -118,16 +120,16 @@ function analyzeFilterDefinition(filterElement, debug = false) {
 /**
  * Parse CSS function parameters (handles nested parentheses correctly)
  */
-function parseCSSFunction(filterString, functionName) {
+function parseCSSFunction (filterString, functionName) {
   const startPattern = `${functionName}(`
   const startIndex = filterString.indexOf(startPattern)
-  
+
   if (startIndex === -1) return null
-  
+
   let depth = 0
   let i = startIndex + startPattern.length
   let params = ''
-  
+
   while (i < filterString.length) {
     const char = filterString[i]
     if (char === '(') {
@@ -141,14 +143,14 @@ function parseCSSFunction(filterString, functionName) {
     params += char
     i++
   }
-  
+
   return params.trim()
 }
 
 /**
  * Extract numeric values with units from a string
  */
-function extractNumericValues(str) {
+function extractNumericValues (str) {
   // Match numbers with optional units (px, em, rem, etc.)
   const matches = str.match(/(-?\d+(?:\.\d+)?)(px|em|rem|%)?/g) || []
   return matches.map(match => {
@@ -160,8 +162,8 @@ function extractNumericValues(str) {
 /**
  * Analyze CSS filter functions (blur, drop-shadow, etc.)
  */
-function analyzeCSSFilters(filterString, debug = false) {
-  let expansion = { x: 0, y: 0, width: 0, height: 0 }
+function analyzeCSSFilters (filterString, debug = false) {
+  const expansion = { x: 0, y: 0, width: 0, height: 0 }
 
   // Parse blur() function
   const blurParams = parseCSSFunction(filterString, 'blur')
@@ -172,7 +174,7 @@ function analyzeCSSFilters(filterString, debug = false) {
     expansion.y = Math.max(expansion.y, blurExpansion)
     expansion.width = Math.max(expansion.width, blurExpansion * 2)
     expansion.height = Math.max(expansion.height, blurExpansion * 2)
-    
+
     if (debug) {
       console.log(`      CSS blur: ${blurRadius}px -> expansion ${blurExpansion}px`)
     }
@@ -184,42 +186,42 @@ function analyzeCSSFilters(filterString, debug = false) {
     if (debug) {
       console.log(`      Shadow params: "${shadowParams}"`)
     }
-    
+
     // Extract all numeric values from the drop-shadow parameters
     const numericValues = extractNumericValues(shadowParams)
-    
+
     // drop-shadow can have different orders:
     // drop-shadow(offset-x offset-y blur-radius color)
     // drop-shadow(color offset-x offset-y blur-radius)
     // We'll look for the px values specifically
     const pxValues = shadowParams.match(/(-?\d+(?:\.\d+)?)px/g) || []
     const values = pxValues.map(px => parseFloat(px.replace('px', '')))
-    
+
     const offsetX = values[0] || 0
     const offsetY = values[1] || 0
     const blurRadius = values[2] || 0
-    
+
     if (debug) {
       console.log(`      Numeric values: [${numericValues.join(', ')}]`)
       console.log(`      Px values: [${pxValues.join(', ')}]`)
       console.log(`      Parsed: offsetX=${offsetX}, offsetY=${offsetY}, blur=${blurRadius}`)
     }
-    
+
     // For drop-shadow, the expansion is directional
     // Negative offset expands in the negative direction, positive in positive direction
     // Plus blur radius expands in all directions
     const blurExpansion = blurRadius * 3
-    
+
     const leftExpansion = Math.max(0, -offsetX) + blurExpansion
     const rightExpansion = Math.max(0, offsetX) + blurExpansion
     const topExpansion = Math.max(0, -offsetY) + blurExpansion
     const bottomExpansion = Math.max(0, offsetY) + blurExpansion
-    
+
     expansion.x = Math.max(expansion.x, leftExpansion)
     expansion.y = Math.max(expansion.y, topExpansion)
     expansion.width = Math.max(expansion.width, leftExpansion + rightExpansion)
     expansion.height = Math.max(expansion.height, topExpansion + bottomExpansion)
-    
+
     if (debug) {
       console.log(`      CSS drop-shadow: offset=(${offsetX},${offsetY}), blur=${blurRadius} -> expansion left=${leftExpansion}, right=${rightExpansion}, top=${topExpansion}, bottom=${bottomExpansion}`)
     }
@@ -231,8 +233,8 @@ function analyzeCSSFilters(filterString, debug = false) {
 /**
  * Analyze mask effects on element bounds
  */
-function analyzeMaskEffects(element, rootSvg, debug = false) {
-  const mask = element.getAttribute('mask') || 
+function analyzeMaskEffects (element, rootSvg, debug = false) {
+  const mask = element.getAttribute('mask') ||
               element.style.mask ||
               getComputedStyle(element).mask
 
@@ -249,7 +251,7 @@ function analyzeMaskEffects(element, rootSvg, debug = false) {
   if (urlMatch) {
     const maskId = urlMatch[1]
     const maskElement = rootSvg.querySelector(`#${maskId}`)
-    
+
     if (maskElement) {
       // For masks, we typically want to use the full element bounds
       // since masks define visibility, not expand bounds
@@ -265,8 +267,8 @@ function analyzeMaskEffects(element, rootSvg, debug = false) {
 /**
  * Analyze clipPath effects on element bounds
  */
-function analyzeClipPathEffects(element, rootSvg, debug = false) {
-  const clipPath = element.getAttribute('clip-path') || 
+function analyzeClipPathEffects (element, rootSvg, debug = false) {
+  const clipPath = element.getAttribute('clip-path') ||
                   element.style.clipPath ||
                   getComputedStyle(element).clipPath
 
@@ -283,7 +285,7 @@ function analyzeClipPathEffects(element, rootSvg, debug = false) {
   if (urlMatch) {
     const clipPathId = urlMatch[1]
     const clipPathElement = rootSvg.querySelector(`#${clipPathId}`)
-    
+
     if (clipPathElement) {
       // For clipPaths, we could either:
       // 1. Use the clipPath bounds (more accurate for final visual)
@@ -301,13 +303,13 @@ function analyzeClipPathEffects(element, rootSvg, debug = false) {
 /**
  * Apply filter expansion to element bounds
  */
-function applyFilterExpansion(bounds, expansion, debug = false) {
+function applyFilterExpansion (bounds, expansion, debug = false) {
   if (!expansion || (expansion.x === 0 && expansion.y === 0 && expansion.width === 0 && expansion.height === 0)) {
     return bounds
   }
 
   let expandedBounds
-  
+
   if (expansion.isPixelBased || expansion.x >= 1 || expansion.y >= 1 || expansion.width >= 1 || expansion.height >= 1) {
     // Pixel-based expansion
     expandedBounds = {
@@ -322,7 +324,7 @@ function applyFilterExpansion(bounds, expansion, debug = false) {
     const yExpand = bounds.height * expansion.y
     const widthExpand = bounds.width * expansion.width
     const heightExpand = bounds.height * expansion.height
-    
+
     expandedBounds = {
       x: bounds.x - xExpand,
       y: bounds.y - yExpand,
@@ -341,7 +343,7 @@ function applyFilterExpansion(bounds, expansion, debug = false) {
 /**
  * Analyze all effects (filter, mask, clipPath) on an element
  */
-function analyzeElementEffects(element, rootSvg, debug = false) {
+function analyzeElementEffects (element, rootSvg, debug = false) {
   const filterAnalysis = analyzeFilterEffects(element, rootSvg, debug)
   const maskAnalysis = analyzeMaskEffects(element, rootSvg, debug)
   const clipPathAnalysis = analyzeClipPathEffects(element, rootSvg, debug)

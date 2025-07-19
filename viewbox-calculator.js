@@ -185,23 +185,23 @@ async function calculateOptimization (inputFile, options = {}) {
       }
 
       // Helper to get bounds for elements that may not support getBBox
-      function getElementBounds(element) {
+      function getElementBounds (element) {
         const tagName = element.tagName.toLowerCase()
-        
+
         // foreignObject doesn't support getBBox, use attributes instead
         if (tagName === 'foreignobject' || !element.getBBox) {
           const x = parseFloat(element.getAttribute('x') || '0')
           const y = parseFloat(element.getAttribute('y') || '0')
           const width = parseFloat(element.getAttribute('width') || '0')
           const height = parseFloat(element.getAttribute('height') || '0')
-          
+
           if (debug) {
             console.log(`    Using attributes for ${tagName}: x=${x}, y=${y}, w=${width}, h=${height}`)
           }
-          
+
           return { x, y, width, height }
         }
-        
+
         // For all other elements, use getBBox
         return element.getBBox()
       }
@@ -383,10 +383,10 @@ async function calculateOptimization (inputFile, options = {}) {
 
             // Analyze animations on the child element
             const animations = analyzeElementAnimations(childUse)
-            
+
             // Analyze effects on the child element
             const effects = window.analyzeElementEffects ? window.analyzeElementEffects(childUse, svg, debug) : { hasAnyEffects: false }
-            
+
             // Apply filter expansion if present
             let childFinalBounds = { x: finalX, y: finalY, width: finalWidth, height: finalHeight }
             if (effects.filter && effects.filter.hasFilter && effects.filter.expansion) {
@@ -455,10 +455,10 @@ async function calculateOptimization (inputFile, options = {}) {
 
         // Analyze animations
         const animations = analyzeElementAnimations(useEl)
-        
+
         // Analyze effects
         const effects = window.analyzeElementEffects ? window.analyzeElementEffects(useEl, svg, debug) : { hasAnyEffects: false }
-        
+
         // Apply filter expansion if present
         let useFinalBounds = { x: finalX, y: finalY, width: finalWidth, height: finalHeight }
         if (effects.filter && effects.filter.hasFilter && effects.filter.expansion) {
@@ -488,11 +488,11 @@ async function calculateOptimization (inputFile, options = {}) {
 
         const bbox = getElementBounds(element)
         const animations = analyzeElementAnimations(element)
-        
+
         // Calculate cumulative transforms for this element
         const totalTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
         let currentEl = element
-        
+
         while (currentEl && currentEl !== svg) {
           const transform = currentEl.getAttribute('transform')
           if (transform) {
@@ -505,21 +505,21 @@ async function calculateOptimization (inputFile, options = {}) {
           }
           currentEl = currentEl.parentElement
         }
-        
+
         // Apply transforms to bounding box
-        let transformedBounds = {
+        const transformedBounds = {
           x: bbox.x + totalTransform.x,
           y: bbox.y + totalTransform.y,
           width: bbox.width * totalTransform.scaleX,
           height: bbox.height * totalTransform.scaleY
         }
-        
+
         if (debug && (totalTransform.x !== 0 || totalTransform.y !== 0 || totalTransform.scaleX !== 1 || totalTransform.scaleY !== 1 || totalTransform.rotation !== 0)) {
           console.log(`    Transform applied: translate(${totalTransform.x}, ${totalTransform.y}) scale(${totalTransform.scaleX}, ${totalTransform.scaleY}) rotate(${totalTransform.rotation})`)
           console.log(`    Original bounds: (${bbox.x}, ${bbox.y}) ${bbox.width}x${bbox.height}`)
           console.log(`    Transformed bounds: (${transformedBounds.x}, ${transformedBounds.y}) ${transformedBounds.width}x${transformedBounds.height}`)
         }
-        
+
         // Handle rotation (simplified - just expand bounds)
         if (totalTransform.rotation !== 0) {
           const diagonal = Math.sqrt(transformedBounds.width * transformedBounds.width + transformedBounds.height * transformedBounds.height)
@@ -530,10 +530,10 @@ async function calculateOptimization (inputFile, options = {}) {
           transformedBounds.width = diagonal
           transformedBounds.height = diagonal
         }
-        
+
         // Analyze filter, mask, and clipPath effects
         const effects = window.analyzeElementEffects ? window.analyzeElementEffects(element, svg, debug) : { hasAnyEffects: false }
-        
+
         // Apply filter expansion to bounds if present
         let finalBounds = transformedBounds
         if (effects.filter && effects.filter.hasFilter && effects.filter.expansion) {
