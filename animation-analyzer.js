@@ -47,6 +47,17 @@ function parseTransformValue (valueString, transformType) {
         angle: values[0] || 0
       }
 
+    case 'matrix':
+      return {
+        type: 'matrix',
+        a: values[0] || 1,
+        b: values[1] || 0,
+        c: values[2] || 0,
+        d: values[3] || 1,
+        e: values[4] || 0,
+        f: values[5] || 0
+      }
+
     default:
       return {
         type: transformType,
@@ -244,6 +255,9 @@ function analyzeAnimateTransform (animElement, debug = false) {
         break
       case 'skewY':
         matrix = Matrix2D.skewY(value.angle)
+        break
+      case 'matrix':
+        matrix = new Matrix2D(value.a, value.b, value.c, value.d, value.e, value.f)
         break
       default:
         console.warn(`Unknown transform type: ${value.type}`)

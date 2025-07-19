@@ -88,6 +88,7 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 - **skewX(angle)** / **skewY(angle)** - Element skewing
 - **matrix(a, b, c, d, e, f)** - Direct matrix transformations
 - **Cumulative transforms** - Properly handles nested transform inheritance
+- **Overlapping animations** - Intelligent combining of multiple animations on same element
 
 ### Supported Animation Types
 
@@ -95,6 +96,7 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 - **animate** - Attribute animations (x, y, width, height, opacity, etc.)
 - **animateMotion** - Path-based motion animations with mpath references and coordinate values
 - **Path morphing** - Shape animations using `d` attribute with precise bounds calculation
+- **Overlapping animations** - Multiple simultaneous animations with proper additive combining
 - **Keyframe analysis** - Proper keyTimes and calcMode support across all animation types
 
 ### Example Results

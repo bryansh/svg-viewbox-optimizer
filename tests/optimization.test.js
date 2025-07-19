@@ -276,6 +276,65 @@ describe('SVG Optimization', () => {
         fs.unlinkSync(tempFile)
       }
     })
+
+    it('should handle overlapping additive animations', async () => {
+      const input = path.join(fixturesDir, 'test-simple-overlap.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Simple overlap SVG has translate + rotate additive animations
+      expect(result.original.viewBox).toBe('0 0 200 200')
+      expect(result.elements.count).toBe(1) // 1 rect
+      expect(result.elements.animationCount).toBe(2) // 2 overlapping animations
+
+      // Should achieve reasonable savings by combining animations properly
+      expect(result.savings.percentage).toBeGreaterThan(20)
+      expect(result.savings.percentage).toBeLessThan(50) // Not too optimistic
+
+      // Bounds should reflect combined animation states, not individual extremes
+      expect(result.content.width).toBeLessThan(180) // Combined should be more efficient than separate
+      expect(result.content.height).toBeLessThan(200)
+    })
+
+    it('should handle complex nested transforms', async () => {
+      const input = path.join(fixturesDir, 'test-complex-transforms.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Complex transforms SVG has nested groups and multiple animation types
+      expect(result.original.viewBox).toBe('0 0 500 500')
+      expect(result.elements.count).toBeGreaterThan(10) // Multiple elements
+      expect(result.elements.animationCount).toBeGreaterThan(10) // Multiple animations
+
+      // Should detect all animation types including matrix
+      const animatedElements = result.elements.details.filter(el => el.hasAnimations)
+      expect(animatedElements.length).toBeGreaterThan(8)
+    })
+
+    it('should support matrix transforms', async () => {
+      // Create a test SVG with matrix transform animation
+      const testSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <rect x="20" y="20" width="20" height="20" fill="blue">
+    <animateTransform attributeName="transform" type="matrix"
+                     values="1,0,0,1,0,0; 1.5,0,0,1.5,10,10; 1,0,0,1,0,0"
+                     dur="2s" repeatCount="indefinite"/>
+  </rect>
+</svg>`
+
+      const tempFile = path.join(__dirname, 'temp-matrix.svg')
+      fs.writeFileSync(tempFile, testSvg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+
+        // Should detect matrix transform animation
+        expect(result.elements.animationCount).toBe(1)
+
+        // Should handle matrix transforms without errors
+        expect(result.savings.percentage).toBeGreaterThan(0)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
   })
 
   describe('Real-world scenarios', () => {

@@ -35,6 +35,18 @@ All notable changes to this project will be documented in this file.
   - Support for stroke-only animated paths with zero static bounds
   - Enhanced element filtering to include animated elements
 
+- **Complex Transform Support**:
+  - Complete matrix transform parsing and application
+  - Support for all transform types: translate, scale, rotate, skew, matrix
+  - Proper nested transform inheritance handling
+  - Enhanced transform bounds calculation with mathematical precision
+
+- **Overlapping Animation Support**:
+  - Intelligent animation combiner for multiple animations on same element
+  - Proper additive animation combining using matrix multiplication
+  - Separate handling of additive vs non-additive animations
+  - Time sampling for accurate bounds across all animation states
+
 - **Generic Container Detection**:
   - Automatic symbol container identification
   - No hardcoded element-specific logic

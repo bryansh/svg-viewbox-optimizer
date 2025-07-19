@@ -37,6 +37,11 @@ async function calculateOptimization (inputFile, options = {}) {
     const pathParserCode = fs.readFileSync('./svg-path-parser.js', 'utf8')
       .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
 
+    // Inject animation combiner for browser context
+    const animationCombinerCode = fs.readFileSync('./animation-combiner.js', 'utf8')
+      .replace(/const \{ Matrix2D \} = require\('.*'\)/, '') // Remove Node.js require
+      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
+
     // Capture console output
     if (options.debug) {
       page.on('console', msg => console.log('Browser console:', msg.text()))
@@ -133,6 +138,9 @@ async function calculateOptimization (inputFile, options = {}) {
           
           // SVG path parser functions (browser-compatible)
           ${pathParserCode}
+          
+          // Animation combiner functions (browser-compatible)
+          ${animationCombinerCode}
           
           // Enhanced animation analysis functions (browser-compatible)
           ${animationAnalyzerCode}
@@ -457,124 +465,133 @@ async function calculateOptimization (inputFile, options = {}) {
         const bounds = item.bounds
 
         if (item.hasAnimations) {
-          // Handle both enhanced and simple animation formats
-          item.animations.forEach(anim => {
-            if (anim.type === 'animateTransform') {
+          // Use animation combiner for overlapping animations
+          if (typeof window.combineOverlappingAnimations === 'function') {
+            const combinedBounds = window.combineOverlappingAnimations(item.animations, bounds, debug)
+            globalMinX = Math.min(globalMinX, combinedBounds.x)
+            globalMinY = Math.min(globalMinY, combinedBounds.y)
+            globalMaxX = Math.max(globalMaxX, combinedBounds.x + combinedBounds.width)
+            globalMaxY = Math.max(globalMaxY, combinedBounds.y + combinedBounds.height)
+          } else {
+            // Fallback to original logic
+            item.animations.forEach(anim => {
+              if (anim.type === 'animateTransform') {
               // Enhanced format: use matrix-based bounds calculation
-              anim.transforms.forEach(transform => {
-                const matrix = transform.matrix
-                if (debug) {
-                  console.log(`    Transform matrix: a=${matrix.a}, e=${matrix.e}, f=${matrix.f}`)
-                  console.log(`    Base bounds: x=${bounds.x}, y=${bounds.y}, w=${bounds.width}, h=${bounds.height}`)
-                }
-
-                const animatedBounds = matrix.transformBounds ? matrix.transformBounds(bounds) : bounds
-
-                if (debug) {
-                  console.log(`    Animated bounds: x=${animatedBounds.x}, y=${animatedBounds.y}, w=${animatedBounds.width}, h=${animatedBounds.height}`)
-                }
-
-                globalMinX = Math.min(globalMinX, animatedBounds.x)
-                globalMinY = Math.min(globalMinY, animatedBounds.y)
-                globalMaxX = Math.max(globalMaxX, animatedBounds.x + animatedBounds.width)
-                globalMaxY = Math.max(globalMaxY, animatedBounds.y + animatedBounds.height)
-
-                if (debug) {
-                  console.log(`    Updated global: minX=${globalMinX}, minY=${globalMinY}, maxX=${globalMaxX}, maxY=${globalMaxY}`)
-                }
-              })
-            } else if (anim.type === 'animate') {
-              // Enhanced format: handle attribute animations
-              if (debug) {
-                console.log(`    Processing animate: ${anim.attributeName} with ${anim.values.length} values`)
-              }
-              anim.values.forEach(valueFrame => {
-                let adjustedBounds = {
-                  x: bounds.x,
-                  y: bounds.y,
-                  width: bounds.width,
-                  height: bounds.height
-                }
-
-                if (valueFrame.normalizedValue && valueFrame.normalizedValue.type === 'pathData') {
-                  // Handle path morphing animations
-                  const pathBounds = valueFrame.normalizedValue.bounds
+                anim.transforms.forEach(transform => {
+                  const matrix = transform.matrix
                   if (debug) {
-                    console.log(`      Path morphing bounds: x=${pathBounds.minX}, y=${pathBounds.minY}, w=${pathBounds.maxX - pathBounds.minX}, h=${pathBounds.maxY - pathBounds.minY}`)
+                    console.log(`    Transform matrix: a=${matrix.a}, e=${matrix.e}, f=${matrix.f}`)
+                    console.log(`    Base bounds: x=${bounds.x}, y=${bounds.y}, w=${bounds.width}, h=${bounds.height}`)
                   }
-                  adjustedBounds = {
-                    x: pathBounds.minX,
-                    y: pathBounds.minY,
-                    width: pathBounds.maxX - pathBounds.minX,
-                    height: pathBounds.maxY - pathBounds.minY
+
+                  const animatedBounds = matrix.transformBounds ? matrix.transformBounds(bounds) : bounds
+
+                  if (debug) {
+                    console.log(`    Animated bounds: x=${animatedBounds.x}, y=${animatedBounds.y}, w=${animatedBounds.width}, h=${animatedBounds.height}`)
                   }
-                } else {
+
+                  globalMinX = Math.min(globalMinX, animatedBounds.x)
+                  globalMinY = Math.min(globalMinY, animatedBounds.y)
+                  globalMaxX = Math.max(globalMaxX, animatedBounds.x + animatedBounds.width)
+                  globalMaxY = Math.max(globalMaxY, animatedBounds.y + animatedBounds.height)
+
+                  if (debug) {
+                    console.log(`    Updated global: minX=${globalMinX}, minY=${globalMinY}, maxX=${globalMaxX}, maxY=${globalMaxY}`)
+                  }
+                })
+              } else if (anim.type === 'animate') {
+              // Enhanced format: handle attribute animations
+                if (debug) {
+                  console.log(`    Processing animate: ${anim.attributeName} with ${anim.values.length} values`)
+                }
+                anim.values.forEach(valueFrame => {
+                  let adjustedBounds = {
+                    x: bounds.x,
+                    y: bounds.y,
+                    width: bounds.width,
+                    height: bounds.height
+                  }
+
+                  if (valueFrame.normalizedValue && valueFrame.normalizedValue.type === 'pathData') {
+                  // Handle path morphing animations
+                    const pathBounds = valueFrame.normalizedValue.bounds
+                    if (debug) {
+                      console.log(`      Path morphing bounds: x=${pathBounds.minX}, y=${pathBounds.minY}, w=${pathBounds.maxX - pathBounds.minX}, h=${pathBounds.maxY - pathBounds.minY}`)
+                    }
+                    adjustedBounds = {
+                      x: pathBounds.minX,
+                      y: pathBounds.minY,
+                      width: pathBounds.maxX - pathBounds.minX,
+                      height: pathBounds.maxY - pathBounds.minY
+                    }
+                  } else {
                   // Handle geometric attribute animations
-                  switch (anim.attributeName) {
-                    case 'x':
-                      adjustedBounds.x = valueFrame.value
-                      break
-                    case 'y':
-                      adjustedBounds.y = valueFrame.value
-                      break
-                    case 'width':
-                      adjustedBounds.width = valueFrame.value
-                      break
-                    case 'height':
-                      adjustedBounds.height = valueFrame.value
-                      break
-                    case 'd':
+                    switch (anim.attributeName) {
+                      case 'x':
+                        adjustedBounds.x = valueFrame.value
+                        break
+                      case 'y':
+                        adjustedBounds.y = valueFrame.value
+                        break
+                      case 'width':
+                        adjustedBounds.width = valueFrame.value
+                        break
+                      case 'height':
+                        adjustedBounds.height = valueFrame.value
+                        break
+                      case 'd':
                       // Path data should be handled above via normalizedValue
-                      if (debug) {
-                        console.log('      Warning: d attribute not processed as pathData')
-                      }
-                      break
-                    default:
+                        if (debug) {
+                          console.log('      Warning: d attribute not processed as pathData')
+                        }
+                        break
+                      default:
                       // For other attributes like stroke-width, opacity, etc.
                       // don't change bounds - just use the original bounds
-                      if (debug) {
-                        console.log(`      Ignoring non-geometric attribute: ${anim.attributeName}`)
-                      }
-                      break
+                        if (debug) {
+                          console.log(`      Ignoring non-geometric attribute: ${anim.attributeName}`)
+                        }
+                        break
+                    }
                   }
-                }
 
-                if (debug) {
-                  console.log(`      Adjusted bounds: x=${adjustedBounds.x}, y=${adjustedBounds.y}, w=${adjustedBounds.width}, h=${adjustedBounds.height}`)
-                }
+                  if (debug) {
+                    console.log(`      Adjusted bounds: x=${adjustedBounds.x}, y=${adjustedBounds.y}, w=${adjustedBounds.width}, h=${adjustedBounds.height}`)
+                  }
 
-                globalMinX = Math.min(globalMinX, adjustedBounds.x)
-                globalMinY = Math.min(globalMinY, adjustedBounds.y)
-                globalMaxX = Math.max(globalMaxX, adjustedBounds.x + adjustedBounds.width)
-                globalMaxY = Math.max(globalMaxY, adjustedBounds.y + adjustedBounds.height)
+                  globalMinX = Math.min(globalMinX, adjustedBounds.x)
+                  globalMinY = Math.min(globalMinY, adjustedBounds.y)
+                  globalMaxX = Math.max(globalMaxX, adjustedBounds.x + adjustedBounds.width)
+                  globalMaxY = Math.max(globalMaxY, adjustedBounds.y + adjustedBounds.height)
 
-                if (debug) {
-                  console.log(`      Updated global from animate: minX=${globalMinX}, minY=${globalMinY}, maxX=${globalMaxX}, maxY=${globalMaxY}`)
-                }
-              })
-            } else if (anim.type === 'animateMotion') {
+                  if (debug) {
+                    console.log(`      Updated global from animate: minX=${globalMinX}, minY=${globalMinY}, maxX=${globalMaxX}, maxY=${globalMaxY}`)
+                  }
+                })
+              } else if (anim.type === 'animateMotion') {
               // Enhanced format: handle motion path animations
-              const motionBounds = anim.expandedBounds || anim.motionBounds
-              if (debug) {
-                console.log(`    Processing animateMotion with bounds: (${motionBounds.minX}, ${motionBounds.minY}) to (${motionBounds.maxX}, ${motionBounds.maxY})`)
-              }
-              globalMinX = Math.min(globalMinX, bounds.x + motionBounds.minX)
-              globalMinY = Math.min(globalMinY, bounds.y + motionBounds.minY)
-              globalMaxX = Math.max(globalMaxX, bounds.x + bounds.width + motionBounds.maxX)
-              globalMaxY = Math.max(globalMaxY, bounds.y + bounds.height + motionBounds.maxY)
-            } else if (anim.type === 'simple' || anim.minTransX !== undefined) {
+                const motionBounds = anim.expandedBounds || anim.motionBounds
+                if (debug) {
+                  console.log(`    Processing animateMotion with bounds: (${motionBounds.minX}, ${motionBounds.minY}) to (${motionBounds.maxX}, ${motionBounds.maxY})`)
+                }
+                globalMinX = Math.min(globalMinX, bounds.x + motionBounds.minX)
+                globalMinY = Math.min(globalMinY, bounds.y + motionBounds.minY)
+                globalMaxX = Math.max(globalMaxX, bounds.x + bounds.width + motionBounds.maxX)
+                globalMaxY = Math.max(globalMaxY, bounds.y + bounds.height + motionBounds.maxY)
+              } else if (anim.type === 'simple' || anim.minTransX !== undefined) {
               // Simple format: fallback for basic translate animations
-              const minX = bounds.x + (anim.minTransX || 0)
-              const maxX = bounds.x + bounds.width + (anim.maxTransX || 0)
-              const minY = bounds.y + (anim.minTransY || 0)
-              const maxY = bounds.y + bounds.height + (anim.maxTransY || 0)
+                const minX = bounds.x + (anim.minTransX || 0)
+                const maxX = bounds.x + bounds.width + (anim.maxTransX || 0)
+                const minY = bounds.y + (anim.minTransY || 0)
+                const maxY = bounds.y + bounds.height + (anim.maxTransY || 0)
 
-              globalMinX = Math.min(globalMinX, minX)
-              globalMinY = Math.min(globalMinY, minY)
-              globalMaxX = Math.max(globalMaxX, maxX)
-              globalMaxY = Math.max(globalMaxY, maxY)
-            }
-          })
+                globalMinX = Math.min(globalMinX, minX)
+                globalMinY = Math.min(globalMinY, minY)
+                globalMaxX = Math.max(globalMaxX, maxX)
+                globalMaxY = Math.max(globalMaxY, maxY)
+              }
+            })
+          }
         } else {
           // Static element
           if (debug) {
