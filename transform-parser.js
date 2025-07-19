@@ -131,7 +131,7 @@ class Matrix2D {
    * Check if this matrix is the identity matrix
    */
   isIdentity () {
-    return this.a === 1 && this.b === 0 && this.c === 0 && 
+    return this.a === 1 && this.b === 0 && this.c === 0 &&
            this.d === 1 && this.e === 0 && this.f === 0
   }
 
@@ -221,17 +221,17 @@ function getElementTransform (element) {
   // For animated elements, computed CSS transform reflects animation state
   // which varies over time. Skip CSS transform checking for these elements.
   const hasAnimations = element.querySelector('animateTransform, animate, animateMotion') !== null
-  
+
   if (!hasAnimations) {
     // Check for CSS transform first (higher priority) - only for non-animated elements
     let cssTransform = null
-    
+
     try {
       // Try inline style first
       if (element.style && element.style.transform && element.style.transform !== 'none') {
         cssTransform = element.style.transform
       }
-      
+
       // Fallback to computed style
       if (!cssTransform && typeof getComputedStyle === 'function') {
         const computed = getComputedStyle(element)

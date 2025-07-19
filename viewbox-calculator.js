@@ -108,18 +108,215 @@ async function calculateOptimization (inputFile, options = {}) {
         console.log(`Original viewBox: ${originalViewBox}`)
       }
 
+      // Calculate coordinate transformation for nested SVG elements
+      function calculateNestedSVGTransform (svgElement) {
+        const x = parseFloat(svgElement.getAttribute('x') || '0')
+        const y = parseFloat(svgElement.getAttribute('y') || '0')
+        const width = parseFloat(svgElement.getAttribute('width') || '0')
+        const height = parseFloat(svgElement.getAttribute('height') || '0')
+        const viewBox = svgElement.getAttribute('viewBox')
+
+        if (!viewBox || width <= 0 || height <= 0) {
+          // No viewBox or invalid dimensions - use identity transform with offset
+          return {
+            translateX: x,
+            translateY: y,
+            scaleX: 1,
+            scaleY: 1,
+            viewBoxWidth: width || 0,
+            viewBoxHeight: height || 0
+          }
+        }
+
+        const [vbX, vbY, vbWidth, vbHeight] = viewBox.split(' ').map(Number)
+
+        if (vbWidth <= 0 || vbHeight <= 0) {
+          return {
+            translateX: x,
+            translateY: y,
+            scaleX: 1,
+            scaleY: 1,
+            viewBoxWidth: width,
+            viewBoxHeight: height
+          }
+        }
+
+        // Calculate scale factors from viewBox to viewport
+        const scaleX = width / vbWidth
+        const scaleY = height / vbHeight
+
+        return {
+          translateX: x - (vbX * scaleX), // Account for viewBox offset
+          translateY: y - (vbY * scaleY),
+          scaleX,
+          scaleY,
+          viewBoxWidth: vbWidth,
+          viewBoxHeight: vbHeight,
+          viewBoxX: vbX,
+          viewBoxY: vbY
+        }
+      }
+
+      // Apply nested SVG coordinate transformation to bounds
+      function transformNestedBounds (bounds, svgTransform) {
+        return {
+          x: bounds.x * svgTransform.scaleX + svgTransform.translateX,
+          y: bounds.y * svgTransform.scaleY + svgTransform.translateY,
+          width: bounds.width * svgTransform.scaleX,
+          height: bounds.height * svgTransform.scaleY
+        }
+      }
+
+      // Recursively process nested SVG elements with accumulated coordinate transformations
+      function processNestedSVG (nestedSvgElement, rootElement, accumulatedTransform = null) {
+        // Calculate coordinate transformation for this nested SVG level
+        const nestedTransform = calculateNestedSVGTransform(nestedSvgElement)
+
+        // Accumulate transformations: accumulatedTransform -> nestedTransform
+        let combinedTransform = nestedTransform
+        if (accumulatedTransform) {
+          // Apply accumulated transformation first, then nested SVG transformation
+          combinedTransform = {
+            translateX: accumulatedTransform.translateX + nestedTransform.translateX * accumulatedTransform.scaleX,
+            translateY: accumulatedTransform.translateY + nestedTransform.translateY * accumulatedTransform.scaleY,
+            scaleX: accumulatedTransform.scaleX * nestedTransform.scaleX,
+            scaleY: accumulatedTransform.scaleY * nestedTransform.scaleY,
+            viewBoxWidth: nestedTransform.viewBoxWidth,
+            viewBoxHeight: nestedTransform.viewBoxHeight,
+            viewBoxX: nestedTransform.viewBoxX,
+            viewBoxY: nestedTransform.viewBoxY
+          }
+        }
+
+        // Find direct children that are not nested SVGs themselves
+        const directChildren = Array.from(nestedSvgElement.children).filter(child => {
+          const tagName = child.tagName.toLowerCase()
+          return tagName !== 'svg' &&
+                 ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text', 'image', 'g', 'foreignObject'].includes(tagName)
+        })
+
+        // Process direct children
+        directChildren.forEach(nestedElement => {
+          const nestedBbox = getElementBounds(nestedElement)
+          const nestedAnimations = analyzeElementAnimations(nestedElement)
+
+          if (debug) {
+            console.log(`    Processing nested element ${nestedElement.tagName}: bounds (${nestedBbox.x}, ${nestedBbox.y}) ${nestedBbox.width}x${nestedBbox.height}`)
+          }
+
+          // For animated elements in nested SVGs, we need to scale the animation transforms
+          // by the nested SVG coordinate transformation
+          let processedAnimations = nestedAnimations
+          if (nestedAnimations.length > 0) {
+            processedAnimations = nestedAnimations.map(anim => {
+              if (anim.type === 'animateTransform' && anim.transforms) {
+                // Scale animation transform values by nested SVG scale factors
+                const scaledTransforms = anim.transforms.map(transform => {
+                  const matrix = transform.matrix
+                  if (matrix && (matrix.e !== 0 || matrix.f !== 0)) {
+                    // Scale translation values by nested SVG scale factors
+                    const scaledMatrix = (typeof Matrix2D !== 'undefined') ? new Matrix2D(
+                      matrix.a, matrix.b, matrix.c, matrix.d,
+                      matrix.e * combinedTransform.scaleX, // Scale translateX
+                      matrix.f * combinedTransform.scaleY // Scale translateY
+                    ) : {
+                      a: matrix.a,
+                      b: matrix.b,
+                      c: matrix.c,
+                      d: matrix.d,
+                      e: matrix.e * combinedTransform.scaleX,
+                      f: matrix.f * combinedTransform.scaleY,
+                      transformBounds: matrix.transformBounds
+                    }
+                    return { ...transform, matrix: scaledMatrix }
+                  }
+                  return transform
+                })
+                return { ...anim, transforms: scaledTransforms }
+              } else if (anim.type === 'animateMotion' && anim.motionBounds) {
+                // Scale motion path bounds by nested SVG scale factors
+                const scaledMotionBounds = {
+                  minX: anim.motionBounds.minX * combinedTransform.scaleX,
+                  minY: anim.motionBounds.minY * combinedTransform.scaleY,
+                  maxX: anim.motionBounds.maxX * combinedTransform.scaleX,
+                  maxY: anim.motionBounds.maxY * combinedTransform.scaleY
+                }
+                return { ...anim, motionBounds: scaledMotionBounds, expandedBounds: scaledMotionBounds }
+              }
+              return anim
+            })
+          }
+
+          // Apply accumulated nested SVG coordinate transformation to element bounds
+          let transformedNestedBounds = transformNestedBounds(nestedBbox, combinedTransform)
+
+          // Apply cumulative transform matrix from parent elements (group transforms, etc.)
+          const totalMatrix = calculateCumulativeTransform ? calculateCumulativeTransform(nestedSvgElement, rootElement) : null
+          if (totalMatrix && !totalMatrix.isIdentity()) {
+            transformedNestedBounds = totalMatrix.transformBounds(transformedNestedBounds)
+
+            if (debug) {
+              console.log(`      Applied parent matrix transforms: ${totalMatrix.toString()}`)
+            }
+          }
+
+          if (debug) {
+            console.log(`      Nested bounds after transformation: (${transformedNestedBounds.x}, ${transformedNestedBounds.y}) ${transformedNestedBounds.width}x${transformedNestedBounds.height}`)
+          }
+
+          // Analyze effects on nested element
+          const nestedEffects = window.analyzeElementEffects ? window.analyzeElementEffects(nestedElement, nestedSvgElement, debug) : { hasAnyEffects: false }
+
+          // Apply filter expansion if present
+          let finalNestedBounds = transformedNestedBounds
+          if (nestedEffects.filter && nestedEffects.filter.hasFilter && nestedEffects.filter.expansion) {
+            finalNestedBounds = window.applyFilterExpansion ? window.applyFilterExpansion(transformedNestedBounds, nestedEffects.filter.expansion, debug) : transformedNestedBounds
+          }
+
+          // Skip if no valid bounds and no animations/effects
+          if ((!nestedBbox || nestedBbox.width <= 0 || nestedBbox.height <= 0) && processedAnimations.length === 0 && !nestedEffects.hasAnyEffects) return
+
+          elementBounds.push({
+            element: nestedElement,
+            bounds: finalNestedBounds,
+            originalBounds: nestedBbox,
+            hasAnimations: processedAnimations.length > 0,
+            animationCount: processedAnimations.length,
+            animations: processedAnimations, // Use scaled animations
+            effects: nestedEffects,
+            hasEffects: nestedEffects.hasAnyEffects,
+            nestedSVG: nestedSvgElement // Reference to immediate parent nested SVG
+          })
+        })
+
+        // Find nested SVG children and process them recursively with accumulated transformation
+        const nestedSvgChildren = Array.from(nestedSvgElement.children).filter(child =>
+          child.tagName.toLowerCase() === 'svg'
+        )
+
+        nestedSvgChildren.forEach(childSvg => {
+          processNestedSVG(childSvg, rootElement, combinedTransform)
+        })
+      }
+
       // Helper to get bounds for elements that may not support getBBox
       function getElementBounds (element) {
         const tagName = element.tagName.toLowerCase()
 
-        // foreignObject doesn't support getBBox, use attributes instead
-        if (tagName === 'foreignobject' || !element.getBBox) {
+        // Handle elements that don't support getBBox or need special processing
+        if (tagName === 'foreignobject' || tagName === 'svg' || !element.getBBox) {
           const x = parseFloat(element.getAttribute('x') || '0')
           const y = parseFloat(element.getAttribute('y') || '0')
           const width = parseFloat(element.getAttribute('width') || '0')
           const height = parseFloat(element.getAttribute('height') || '0')
 
-          if (debug) {
+          if (debug && tagName === 'svg') {
+            console.log(`    Processing nested SVG: x=${x}, y=${y}, w=${width}, h=${height}`)
+            const viewBox = element.getAttribute('viewBox')
+            if (viewBox) {
+              console.log(`      viewBox: ${viewBox}`)
+            }
+          } else if (debug) {
             console.log(`    Using attributes for ${tagName}: x=${x}, y=${y}, w=${width}, h=${height}`)
           }
 
@@ -129,18 +326,18 @@ async function calculateOptimization (inputFile, options = {}) {
         // For animated elements, getBBox() can return different values depending on
         // the current animation state. Use base geometry attributes when available.
         const hasAnimations = element.querySelector('animateTransform, animate, animateMotion') !== null
-        
+
         if (hasAnimations && (tagName === 'rect' || tagName === 'circle' || tagName === 'ellipse')) {
           if (tagName === 'rect') {
             const x = parseFloat(element.getAttribute('x') || '0')
             const y = parseFloat(element.getAttribute('y') || '0')
             const width = parseFloat(element.getAttribute('width') || '0')
             const height = parseFloat(element.getAttribute('height') || '0')
-            
+
             if (debug) {
               console.log(`    Using base attributes for animated ${tagName}: x=${x}, y=${y}, w=${width}, h=${height}`)
             }
-            
+
             return { x, y, width, height }
           } else if (tagName === 'circle') {
             const cx = parseFloat(element.getAttribute('cx') || '0')
@@ -167,18 +364,17 @@ async function calculateOptimization (inputFile, options = {}) {
       }
 
       function shouldIncludeElement (element) {
-        // Skip elements inside defs or symbol definitions
+        // Skip elements inside defs, symbol definitions, or nested SVG elements
         let parent = element.parentElement
         while (parent && parent !== svg) {
           const tagName = parent.tagName.toLowerCase()
-          if (tagName === 'defs' || tagName === 'symbol') {
+          if (tagName === 'defs' || tagName === 'symbol' || tagName === 'svg') {
             return false
           }
           parent = parent.parentElement
         }
         return true
       }
-
 
       // Enhanced animation analysis using injected modules
       function analyzeElementAnimations (element) {
@@ -271,7 +467,7 @@ async function calculateOptimization (inputFile, options = {}) {
 
             // Get child's cumulative transform matrix
             const childMatrix = calculateCumulativeTransform ? calculateCumulativeTransform(childUse, referencedSymbol) : null
-            
+
             // Combine container and child transforms using matrix multiplication
             let finalBounds = childBbox
             if (containerMatrix && childMatrix) {
@@ -355,11 +551,26 @@ async function calculateOptimization (inputFile, options = {}) {
         })
       })
 
-      // Process direct visual elements
-      const visualElements = svg.querySelectorAll('rect, circle, ellipse, line, polyline, polygon, path, text, image, g, foreignObject')
+      // Process direct visual elements including nested SVG containers
+      const visualElements = svg.querySelectorAll('rect, circle, ellipse, line, polyline, polygon, path, text, image, g, foreignObject, svg')
       visualElements.forEach(element => {
         if (!shouldIncludeElement(element)) return
 
+        const tagName = element.tagName.toLowerCase()
+
+        // Handle nested SVG elements specially with recursive processing
+        if (tagName === 'svg') {
+          if (debug) {
+            console.log('  Processing nested SVG element')
+          }
+
+          // Process this nested SVG recursively
+          processNestedSVG(element, svg)
+
+          return // Skip normal processing for nested SVG
+        }
+
+        // Normal processing for non-nested SVG elements
         const bbox = getElementBounds(element)
         const animations = analyzeElementAnimations(element)
 

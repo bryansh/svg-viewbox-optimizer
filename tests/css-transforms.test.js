@@ -19,7 +19,7 @@ describe('CSS Transform Support', () => {
         // Should detect CSS transform and include translated position
         // Original rect at x=50, translated by 50px = final x position 100
         // With 30px width, total bounds go from x=100 to x=130 (100+30)
-        expect(result.content.minX).toBeCloseTo(100, 1) // Translated position  
+        expect(result.content.minX).toBeCloseTo(100, 1) // Translated position
         expect(result.content.maxX).toBeCloseTo(130, 1) // Translated position + width
         expect(result.elements.count).toBe(1)
       } finally {
@@ -46,7 +46,7 @@ describe('CSS Transform Support', () => {
         // Original bounds: (15,15) to (45,45), after translate(40,20): (55,35) to (85,65)
         expect(result.content.minX).toBeCloseTo(55, 1) // 15+40 = 55
         expect(result.content.maxX).toBeCloseTo(85, 1) // 45+40 = 85
-        expect(result.content.minY).toBeCloseTo(35, 1) // 15+20 = 35  
+        expect(result.content.minY).toBeCloseTo(35, 1) // 15+20 = 35
         expect(result.content.maxY).toBeCloseTo(65, 1) // 45+20 = 65
       } finally {
         fs.unlinkSync(tempFile)
@@ -228,7 +228,7 @@ describe('CSS Transform Support', () => {
         // Should account for both CSS transform and filter expansion
         expect(result.elements.count).toBe(1)
         expect(result.elements.effectsCount).toBe(1) // Has filter
-        
+
         // Transform moves rect from (50,50) to (90,80), filter blur(5px) expands by ~15px
         // Final bounds: (75,65) to (135,125) including filter expansion
         expect(result.content.minX).toBeCloseTo(75, 1) // 50+40-15 = 75 (transform + filter expansion)
@@ -300,7 +300,7 @@ describe('CSS Transform Support', () => {
         // Rect (40,40) 25x25 -> translate(50,30) -> (90,70) 25x25
         expect(result.content.minX).toBeCloseTo(90, 1) // 40+50 = 90
         expect(result.content.maxX).toBeCloseTo(115, 1) // 40+50+25 = 115
-        expect(result.content.minY).toBeCloseTo(70, 1) // 40+30 = 70  
+        expect(result.content.minY).toBeCloseTo(70, 1) // 40+30 = 70
         expect(result.content.maxY).toBeCloseTo(95, 1) // 40+30+25 = 95
       } finally {
         fs.unlinkSync(tempFile)
