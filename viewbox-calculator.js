@@ -426,9 +426,10 @@ async function calculateOptimization (inputFile, options = {}) {
         if (!shouldIncludeElement(element)) return
 
         const bbox = element.getBBox()
-        if (!bbox || bbox.width <= 0 || bbox.height <= 0) return
-
         const animations = analyzeElementAnimations(element)
+
+        // For animated elements, don't filter based on static bounds since animation bounds are what matter
+        if ((!bbox || bbox.width <= 0 || bbox.height <= 0) && animations.length === 0) return
 
         elementBounds.push({
           element,
@@ -488,33 +489,54 @@ async function calculateOptimization (inputFile, options = {}) {
                 console.log(`    Processing animate: ${anim.attributeName} with ${anim.values.length} values`)
               }
               anim.values.forEach(valueFrame => {
-                const adjustedBounds = {
+                let adjustedBounds = {
                   x: bounds.x,
                   y: bounds.y,
                   width: bounds.width,
                   height: bounds.height
                 }
 
-                switch (anim.attributeName) {
-                  case 'x':
-                    adjustedBounds.x = valueFrame.value
-                    break
-                  case 'y':
-                    adjustedBounds.y = valueFrame.value
-                    break
-                  case 'width':
-                    adjustedBounds.width = valueFrame.value
-                    break
-                  case 'height':
-                    adjustedBounds.height = valueFrame.value
-                    break
-                  default:
-                    // For other attributes like stroke-width, opacity, etc.
-                    // don't change bounds - just use the original bounds
-                    if (debug) {
-                      console.log(`      Ignoring non-geometric attribute: ${anim.attributeName}`)
-                    }
-                    break
+                if (valueFrame.normalizedValue && valueFrame.normalizedValue.type === 'pathData') {
+                  // Handle path morphing animations
+                  const pathBounds = valueFrame.normalizedValue.bounds
+                  if (debug) {
+                    console.log(`      Path morphing bounds: x=${pathBounds.minX}, y=${pathBounds.minY}, w=${pathBounds.maxX - pathBounds.minX}, h=${pathBounds.maxY - pathBounds.minY}`)
+                  }
+                  adjustedBounds = {
+                    x: pathBounds.minX,
+                    y: pathBounds.minY,
+                    width: pathBounds.maxX - pathBounds.minX,
+                    height: pathBounds.maxY - pathBounds.minY
+                  }
+                } else {
+                  // Handle geometric attribute animations
+                  switch (anim.attributeName) {
+                    case 'x':
+                      adjustedBounds.x = valueFrame.value
+                      break
+                    case 'y':
+                      adjustedBounds.y = valueFrame.value
+                      break
+                    case 'width':
+                      adjustedBounds.width = valueFrame.value
+                      break
+                    case 'height':
+                      adjustedBounds.height = valueFrame.value
+                      break
+                    case 'd':
+                      // Path data should be handled above via normalizedValue
+                      if (debug) {
+                        console.log('      Warning: d attribute not processed as pathData')
+                      }
+                      break
+                    default:
+                      // For other attributes like stroke-width, opacity, etc.
+                      // don't change bounds - just use the original bounds
+                      if (debug) {
+                        console.log(`      Ignoring non-geometric attribute: ${anim.attributeName}`)
+                      }
+                      break
+                  }
                 }
 
                 if (debug) {

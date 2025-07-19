@@ -93,8 +93,9 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 
 - **animateTransform** - Transform animations with all calcModes (linear, discrete, paced, spline)
 - **animate** - Attribute animations (x, y, width, height, opacity, etc.)
-- **animateMotion** - Path-based motion animations
-- **Keyframe analysis** - Proper keyTimes and calcMode support
+- **animateMotion** - Path-based motion animations with mpath references and coordinate values
+- **Path morphing** - Shape animations using `d` attribute with precise bounds calculation
+- **Keyframe analysis** - Proper keyTimes and calcMode support across all animation types
 
 ### Example Results
 

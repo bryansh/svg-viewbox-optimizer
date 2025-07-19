@@ -61,6 +61,17 @@ function parseTransformValue (valueString, transformType) {
 function parseAttributeValue (valueString, attributeName) {
   const numValue = parseFloat(valueString)
 
+  if (attributeName === 'd') {
+    // Handle path data attributes
+    const bounds = calculatePathBounds(valueString)
+    return {
+      type: 'pathData',
+      attribute: attributeName,
+      pathData: valueString,
+      bounds
+    }
+  }
+
   return {
     type: 'attribute',
     attribute: attributeName,

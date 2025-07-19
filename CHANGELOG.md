@@ -29,6 +29,12 @@ All notable changes to this project will be documented in this file.
   - Proper object handling for matrix transformations
   - Improved bounds calculation for all animation types
 
+- **Path Morphing Support**:
+  - Complete `d` attribute animation parsing for shape morphing
+  - Union bounds calculation across all morphing states
+  - Support for stroke-only animated paths with zero static bounds
+  - Enhanced element filtering to include animated elements
+
 - **Generic Container Detection**:
   - Automatic symbol container identification
   - No hardcoded element-specific logic

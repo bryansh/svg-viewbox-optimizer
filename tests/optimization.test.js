@@ -196,6 +196,86 @@ describe('SVG Optimization', () => {
         fs.unlinkSync(tempFile)
       }
     })
+
+    it('should handle path morphing animations (d attribute)', async () => {
+      const input = path.join(fixturesDir, 'test-path-morphing.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Test path morphing SVG has 4 paths with d attribute animations
+      expect(result.original.viewBox).toBe('0 0 300 300')
+      expect(result.elements.count).toBe(4) // 4 path elements
+      expect(result.elements.animationCount).toBe(4) // 4 d attribute animations
+
+      // Should optimize from original 300x300
+      expect(result.savings.percentage).toBeGreaterThan(10)
+
+      // Bounds should capture all morphing states
+      // Based on our test file: morphs include shapes from x=50 to x=290, y=0 to y=280
+      expect(result.content.minX).toBeLessThan(60)
+      expect(result.content.maxX).toBeGreaterThan(280)
+      expect(result.content.minY).toBeLessThan(10)
+      expect(result.content.maxY).toBeGreaterThan(270)
+    })
+
+    it('should parse path data in animate elements', async () => {
+      // Create a test SVG with simple path morphing
+      const testSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <path fill="red">
+    <animate attributeName="d" dur="2s"
+             values="M 50,50 L 100,50 L 100,100 L 50,100 Z;
+                     M 60,60 L 90,60 L 90,90 L 60,90 Z;
+                     M 50,50 L 100,50 L 100,100 L 50,100 Z"/>
+  </path>
+</svg>`
+
+      const tempFile = path.join(__dirname, 'temp-path-morphing.svg')
+      fs.writeFileSync(tempFile, testSvg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+
+        // Should detect path morphing animation
+        expect(result.elements.animationCount).toBe(1)
+
+        // Bounds should capture all morphing states (square from 50,50 to 100,100)
+        expect(result.content.minX).toBeLessThan(55)
+        expect(result.content.maxX).toBeGreaterThan(95)
+        expect(result.content.minY).toBeLessThan(55)
+        expect(result.content.maxY).toBeGreaterThan(95)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
+
+    it('should handle stroke-only animated paths', async () => {
+      // Create a test SVG with stroke-only path animation
+      const testSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+  <path fill="none" stroke="blue" stroke-width="2">
+    <animate attributeName="d" dur="1s"
+             values="M 20,20 L 80,20;
+                     M 20,20 Q 50,10 80,20;
+                     M 20,20 L 80,20"/>
+  </path>
+</svg>`
+
+      const tempFile = path.join(__dirname, 'temp-stroke-path.svg')
+      fs.writeFileSync(tempFile, testSvg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+
+        // Should detect stroke-only path animation (regression test for getBBox filtering)
+        expect(result.elements.count).toBe(1)
+        expect(result.elements.animationCount).toBe(1)
+
+        // Should optimize space by detecting actual animated bounds
+        expect(result.savings.percentage).toBeGreaterThan(50)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
   })
 
   describe('Real-world scenarios', () => {
