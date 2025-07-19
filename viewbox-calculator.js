@@ -215,10 +215,10 @@ async function calculateOptimization (inputFile, options = {}) {
       // Enhanced animation analysis using injected modules
       function analyzeElementAnimations (element) {
         // Use the sophisticated animation analyzer that was injected
-        if (typeof findElementAnimations === 'function') {
-          return findElementAnimations(element, svg, debug)
+        if (typeof window.findElementAnimations === 'function') {
+          return window.findElementAnimations(element, svg, debug)
         }
-        
+
         // Fallback to simple analysis if injection failed
         const animations = []
         const animatedElements = svg.querySelectorAll('animateTransform, animate, animateMotion')
@@ -226,8 +226,8 @@ async function calculateOptimization (inputFile, options = {}) {
         animatedElements.forEach(anim => {
           if (anim.parentElement === element) {
             // Use enhanced analysis if available
-            if (typeof analyzeAnimation === 'function') {
-              const analysis = analyzeAnimation(anim, debug)
+            if (typeof window.analyzeAnimation === 'function') {
+              const analysis = window.analyzeAnimation(anim, debug)
               if (analysis) {
                 animations.push(analysis)
               }
@@ -247,9 +247,12 @@ async function calculateOptimization (inputFile, options = {}) {
                 const minTransY = Math.min(...translateValues.map(t => t.y))
                 const maxTransY = Math.max(...translateValues.map(t => t.y))
 
-                animations.push({ 
-                  type: 'simple', 
-                  minTransX, maxTransX, minTransY, maxTransY 
+                animations.push({
+                  type: 'simple',
+                  minTransX,
+                  maxTransX,
+                  minTransY,
+                  maxTransY
                 })
               }
             }
@@ -455,18 +458,18 @@ async function calculateOptimization (inputFile, options = {}) {
                   console.log(`    Transform matrix: a=${matrix.a}, e=${matrix.e}, f=${matrix.f}`)
                   console.log(`    Base bounds: x=${bounds.x}, y=${bounds.y}, w=${bounds.width}, h=${bounds.height}`)
                 }
-                
+
                 const animatedBounds = matrix.transformBounds ? matrix.transformBounds(bounds) : bounds
-                
+
                 if (debug) {
                   console.log(`    Animated bounds: x=${animatedBounds.x}, y=${animatedBounds.y}, w=${animatedBounds.width}, h=${animatedBounds.height}`)
                 }
-                
+
                 globalMinX = Math.min(globalMinX, animatedBounds.x)
                 globalMinY = Math.min(globalMinY, animatedBounds.y)
                 globalMaxX = Math.max(globalMaxX, animatedBounds.x + animatedBounds.width)
                 globalMaxY = Math.max(globalMaxY, animatedBounds.y + animatedBounds.height)
-                
+
                 if (debug) {
                   console.log(`    Updated global: minX=${globalMinX}, minY=${globalMinY}, maxX=${globalMaxX}, maxY=${globalMaxY}`)
                 }
@@ -477,13 +480,13 @@ async function calculateOptimization (inputFile, options = {}) {
                 console.log(`    Processing animate: ${anim.attributeName} with ${anim.values.length} values`)
               }
               anim.values.forEach(valueFrame => {
-                let adjustedBounds = { 
-                  x: bounds.x, 
-                  y: bounds.y, 
-                  width: bounds.width, 
-                  height: bounds.height 
+                const adjustedBounds = {
+                  x: bounds.x,
+                  y: bounds.y,
+                  width: bounds.width,
+                  height: bounds.height
                 }
-                
+
                 switch (anim.attributeName) {
                   case 'x':
                     adjustedBounds.x = valueFrame.value
@@ -505,16 +508,16 @@ async function calculateOptimization (inputFile, options = {}) {
                     }
                     break
                 }
-                
+
                 if (debug) {
                   console.log(`      Adjusted bounds: x=${adjustedBounds.x}, y=${adjustedBounds.y}, w=${adjustedBounds.width}, h=${adjustedBounds.height}`)
                 }
-                
+
                 globalMinX = Math.min(globalMinX, adjustedBounds.x)
                 globalMinY = Math.min(globalMinY, adjustedBounds.y)
                 globalMaxX = Math.max(globalMaxX, adjustedBounds.x + adjustedBounds.width)
                 globalMaxY = Math.max(globalMaxY, adjustedBounds.y + adjustedBounds.height)
-                
+
                 if (debug) {
                   console.log(`      Updated global from animate: minX=${globalMinX}, minY=${globalMinY}, maxX=${globalMaxX}, maxY=${globalMaxY}`)
                 }
