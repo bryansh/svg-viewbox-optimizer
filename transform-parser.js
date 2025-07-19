@@ -1,7 +1,10 @@
 /**
  * SVG Transform Parser
  * Handles parsing and calculation of all SVG transform types using 2D transformation matrices
+ * Also supports CSS transforms with automatic fallback to SVG attributes
  */
+
+/* global getComputedStyle */
 
 /**
  * 2D Transformation Matrix
@@ -124,6 +127,14 @@ class Matrix2D {
     return new Matrix2D(1, Math.tan(rad), 0, 1, 0, 0)
   }
 
+  /**
+   * Check if this matrix is the identity matrix
+   */
+  isIdentity () {
+    return this.a === 1 && this.b === 0 && this.c === 0 && 
+           this.d === 1 && this.e === 0 && this.f === 0
+  }
+
   toString () {
     return `matrix(${this.a}, ${this.b}, ${this.c}, ${this.d}, ${this.e}, ${this.f})`
   }
@@ -203,17 +214,61 @@ function parseTransform (transformString) {
 }
 
 /**
+ * Get the effective transform for an element from both SVG attributes and CSS
+ * Prioritizes CSS transforms over SVG transform attributes when both exist
+ */
+function getElementTransform (element) {
+  // For animated elements, computed CSS transform reflects animation state
+  // which varies over time. Skip CSS transform checking for these elements.
+  const hasAnimations = element.querySelector('animateTransform, animate, animateMotion') !== null
+  
+  if (!hasAnimations) {
+    // Check for CSS transform first (higher priority) - only for non-animated elements
+    let cssTransform = null
+    
+    try {
+      // Try inline style first
+      if (element.style && element.style.transform && element.style.transform !== 'none') {
+        cssTransform = element.style.transform
+      }
+      
+      // Fallback to computed style
+      if (!cssTransform && typeof getComputedStyle === 'function') {
+        const computed = getComputedStyle(element)
+        if (computed.transform && computed.transform !== 'none') {
+          cssTransform = computed.transform
+        }
+      }
+    } catch (error) {
+      // Silently fall back to SVG attributes if CSS access fails
+    }
+
+    // If we have a CSS transform, use it
+    if (cssTransform) {
+      return parseTransform(cssTransform)
+    }
+  }
+
+  // For animated elements or when no CSS transform, use SVG transform attribute
+  const svgTransform = element.getAttribute('transform')
+  if (svgTransform) {
+    return parseTransform(svgTransform)
+  }
+
+  return Matrix2D.identity()
+}
+
+/**
  * Calculate the cumulative transform matrix for an element
- * by traversing up the DOM tree and accumulating transforms
+ * by traversing up the DOM tree and accumulating transforms from both SVG and CSS
  */
 function calculateCumulativeTransform (element, rootElement) {
   let matrix = Matrix2D.identity()
   let current = element
 
   while (current && current !== rootElement) {
-    const transform = current.getAttribute('transform')
-    if (transform) {
-      const elementMatrix = parseTransform(transform)
+    const elementMatrix = getElementTransform(current)
+    if (elementMatrix) {
       matrix = elementMatrix.multiply(matrix)
     }
     current = current.parentElement
@@ -225,5 +280,6 @@ function calculateCumulativeTransform (element, rootElement) {
 module.exports = {
   Matrix2D,
   parseTransform,
+  getElementTransform,
   calculateCumulativeTransform
 }

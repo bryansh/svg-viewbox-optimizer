@@ -46,6 +46,10 @@ async function calculateOptimization (inputFile, options = {}) {
     const effectsAnalyzerCode = fs.readFileSync('./effects-analyzer.js', 'utf8')
       .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
 
+    // Inject transform parser for enhanced CSS transform support
+    const transformParserCode = fs.readFileSync('./transform-parser.js', 'utf8')
+      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
+
     // Capture console output
     if (options.debug) {
       page.on('console', msg => console.log('Browser console:', msg.text()))
@@ -57,88 +61,8 @@ async function calculateOptimization (inputFile, options = {}) {
       <html>
       <head>
         <script>
-          // Inject Matrix2D class for browser use
-          class Matrix2D {
-            constructor(a = 1, b = 0, c = 0, d = 1, e = 0, f = 0) {
-              this.a = a; this.b = b; this.c = c; this.d = d; this.e = e; this.f = f;
-            }
-            
-            static translate(tx, ty = 0) {
-              return new Matrix2D(1, 0, 0, 1, tx, ty);
-            }
-            
-            static scale(sx, sy = sx) {
-              return new Matrix2D(sx, 0, 0, sy, 0, 0);
-            }
-            
-            static rotate(angle, cx = 0, cy = 0) {
-              const rad = (angle * Math.PI) / 180;
-              const cos = Math.cos(rad);
-              const sin = Math.sin(rad);
-              if (cx === 0 && cy === 0) {
-                return new Matrix2D(cos, sin, -sin, cos, 0, 0);
-              } else {
-                // Rotate around point: translate to origin, rotate, translate back
-                const t1 = Matrix2D.translate(cx, cy);
-                const r = new Matrix2D(cos, sin, -sin, cos, 0, 0);
-                const t2 = Matrix2D.translate(-cx, -cy);
-                return t1.multiply(r).multiply(t2);
-              }
-            }
-            
-            static skewX(angle) {
-              const rad = (angle * Math.PI) / 180;
-              return new Matrix2D(1, 0, Math.tan(rad), 1, 0, 0);
-            }
-            
-            static skewY(angle) {
-              const rad = (angle * Math.PI) / 180;
-              return new Matrix2D(1, Math.tan(rad), 0, 1, 0, 0);
-            }
-            
-            static identity() {
-              return new Matrix2D();
-            }
-            
-            multiply(other) {
-              return new Matrix2D(
-                this.a * other.a + this.c * other.b,
-                this.b * other.a + this.d * other.b,
-                this.a * other.c + this.c * other.d,
-                this.b * other.c + this.d * other.d,
-                this.a * other.e + this.c * other.f + this.e,
-                this.b * other.e + this.d * other.f + this.f
-              );
-            }
-            
-            transformPoint(x, y) {
-              return {
-                x: this.a * x + this.c * y + this.e,
-                y: this.b * x + this.d * y + this.f
-              };
-            }
-            
-            transformBounds(bbox) {
-              const corners = [
-                { x: bbox.x, y: bbox.y },
-                { x: bbox.x + bbox.width, y: bbox.y },
-                { x: bbox.x, y: bbox.y + bbox.height },
-                { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
-              ];
-              
-              const transformedCorners = corners.map(corner => this.transformPoint(corner.x, corner.y));
-              
-              const xs = transformedCorners.map(c => c.x);
-              const ys = transformedCorners.map(c => c.y);
-              
-              return {
-                x: Math.min(...xs),
-                y: Math.min(...ys),
-                width: Math.max(...xs) - Math.min(...xs),
-                height: Math.max(...ys) - Math.min(...ys)
-              };
-            }
-          }
+          // Enhanced transform parser with CSS transform support (browser-compatible)
+          ${transformParserCode}
           
           // SVG path parser functions (browser-compatible)
           ${pathParserCode}
@@ -202,6 +126,36 @@ async function calculateOptimization (inputFile, options = {}) {
           return { x, y, width, height }
         }
 
+        // For animated elements, getBBox() can return different values depending on
+        // the current animation state. Use base geometry attributes when available.
+        const hasAnimations = element.querySelector('animateTransform, animate, animateMotion') !== null
+        
+        if (hasAnimations && (tagName === 'rect' || tagName === 'circle' || tagName === 'ellipse')) {
+          if (tagName === 'rect') {
+            const x = parseFloat(element.getAttribute('x') || '0')
+            const y = parseFloat(element.getAttribute('y') || '0')
+            const width = parseFloat(element.getAttribute('width') || '0')
+            const height = parseFloat(element.getAttribute('height') || '0')
+            
+            if (debug) {
+              console.log(`    Using base attributes for animated ${tagName}: x=${x}, y=${y}, w=${width}, h=${height}`)
+            }
+            
+            return { x, y, width, height }
+          } else if (tagName === 'circle') {
+            const cx = parseFloat(element.getAttribute('cx') || '0')
+            const cy = parseFloat(element.getAttribute('cy') || '0')
+            const r = parseFloat(element.getAttribute('r') || '0')
+            return { x: cx - r, y: cy - r, width: r * 2, height: r * 2 }
+          } else if (tagName === 'ellipse') {
+            const cx = parseFloat(element.getAttribute('cx') || '0')
+            const cy = parseFloat(element.getAttribute('cy') || '0')
+            const rx = parseFloat(element.getAttribute('rx') || '0')
+            const ry = parseFloat(element.getAttribute('ry') || '0')
+            return { x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 }
+          }
+        }
+
         // For all other elements, use getBBox
         return element.getBBox()
       }
@@ -225,37 +179,6 @@ async function calculateOptimization (inputFile, options = {}) {
         return true
       }
 
-      // Generic transform parsing (handles translate, scale, rotate)
-      function parseTransformValues (transformString) {
-        if (!transformString) return { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
-
-        const result = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
-
-        // Parse translate
-        const translateMatch = transformString.match(/translate\(([^)]+)\)/)
-        if (translateMatch) {
-          const values = translateMatch[1].split(/[,\s]+/).map(v => parseFloat(v.trim()))
-          result.x = values[0] || 0
-          result.y = values[1] || 0
-        }
-
-        // Parse scale
-        const scaleMatch = transformString.match(/scale\(([^)]+)\)/)
-        if (scaleMatch) {
-          const values = scaleMatch[1].split(/[,\s]+/).map(v => parseFloat(v.trim()))
-          result.scaleX = values[0] || 1
-          result.scaleY = values[1] || values[0] || 1
-        }
-
-        // Parse rotate
-        const rotateMatch = transformString.match(/rotate\(([^)]+)\)/)
-        if (rotateMatch) {
-          const values = rotateMatch[1].split(/[,\s]+/).map(v => parseFloat(v.trim()))
-          result.rotation = values[0] || 0
-        }
-
-        return result
-      }
 
       // Enhanced animation analysis using injected modules
       function analyzeElementAnimations (element) {
@@ -331,22 +254,8 @@ async function calculateOptimization (inputFile, options = {}) {
             console.log(`  Processing container symbol ${href} - expanding children`)
           }
 
-          // Get the transform for the container use element
-          const containerTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
-          let currentEl = useEl
-
-          while (currentEl && currentEl !== svg) {
-            const transform = currentEl.getAttribute('transform')
-            if (transform) {
-              const parsed = parseTransformValues(transform)
-              containerTransform.x += parsed.x
-              containerTransform.y += parsed.y
-              containerTransform.scaleX *= parsed.scaleX
-              containerTransform.scaleY *= parsed.scaleY
-              containerTransform.rotation += parsed.rotation
-            }
-            currentEl = currentEl.parentElement
-          }
+          // Get the cumulative transform matrix for the container use element
+          const containerMatrix = calculateCumulativeTransform ? calculateCumulativeTransform(useEl, svg) : null
 
           // Process each child use element in the container
           const childUseElements = referencedSymbol.querySelectorAll('use')
@@ -360,25 +269,18 @@ async function calculateOptimization (inputFile, options = {}) {
             const childBbox = getElementBounds(childUse)
             if (!childBbox || childBbox.width <= 0 || childBbox.height <= 0) return
 
-            // Get child's transform
-            const childTransform = parseTransformValues(childUse.getAttribute('transform'))
-
-            // Combine container and child transforms
-            let finalX = childBbox.x + containerTransform.x + childTransform.x
-            let finalY = childBbox.y + containerTransform.y + childTransform.y
-            let finalWidth = childBbox.width * containerTransform.scaleX * childTransform.scaleX
-            let finalHeight = childBbox.height * containerTransform.scaleY * childTransform.scaleY
-
-            // Handle rotation (simplified)
-            const totalRotation = containerTransform.rotation + childTransform.rotation
-            if (totalRotation !== 0) {
-              const diagonal = Math.sqrt(finalWidth * finalWidth + finalHeight * finalHeight)
-              const centerX = finalX + finalWidth / 2
-              const centerY = finalY + finalHeight / 2
-              finalX = centerX - diagonal / 2
-              finalY = centerY - diagonal / 2
-              finalWidth = diagonal
-              finalHeight = diagonal
+            // Get child's cumulative transform matrix
+            const childMatrix = calculateCumulativeTransform ? calculateCumulativeTransform(childUse, referencedSymbol) : null
+            
+            // Combine container and child transforms using matrix multiplication
+            let finalBounds = childBbox
+            if (containerMatrix && childMatrix) {
+              const combinedMatrix = containerMatrix.multiply(childMatrix)
+              finalBounds = combinedMatrix.transformBounds(childBbox)
+            } else if (containerMatrix) {
+              finalBounds = containerMatrix.transformBounds(childBbox)
+            } else if (childMatrix) {
+              finalBounds = childMatrix.transformBounds(childBbox)
             }
 
             // Analyze animations on the child element
@@ -388,7 +290,7 @@ async function calculateOptimization (inputFile, options = {}) {
             const effects = window.analyzeElementEffects ? window.analyzeElementEffects(childUse, svg, debug) : { hasAnyEffects: false }
 
             // Apply filter expansion if present
-            let childFinalBounds = { x: finalX, y: finalY, width: finalWidth, height: finalHeight }
+            let childFinalBounds = finalBounds
             if (effects.filter && effects.filter.hasFilter && effects.filter.expansion) {
               childFinalBounds = window.applyFilterExpansion ? window.applyFilterExpansion(childFinalBounds, effects.filter.expansion, debug) : childFinalBounds
             }
@@ -400,7 +302,7 @@ async function calculateOptimization (inputFile, options = {}) {
             elementBounds.push({
               element: childUse,
               bounds: childFinalBounds,
-              originalBounds: { x: finalX, y: finalY, width: finalWidth, height: finalHeight },
+              originalBounds: finalBounds,
               hasAnimations: animations.length > 0,
               animationCount: animations.length,
               animations,
@@ -419,39 +321,11 @@ async function calculateOptimization (inputFile, options = {}) {
         const bbox = getElementBounds(useEl)
         if (!bbox || bbox.width <= 0 || bbox.height <= 0) return
 
-        // Calculate cumulative transforms
-        const totalTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
-        let currentEl = useEl
+        // Calculate cumulative transform matrix
+        const totalMatrix = calculateCumulativeTransform ? calculateCumulativeTransform(useEl, svg) : null
 
-        while (currentEl && currentEl !== svg) {
-          const transform = currentEl.getAttribute('transform')
-          if (transform) {
-            const parsed = parseTransformValues(transform)
-            totalTransform.x += parsed.x
-            totalTransform.y += parsed.y
-            totalTransform.scaleX *= parsed.scaleX
-            totalTransform.scaleY *= parsed.scaleY
-            totalTransform.rotation += parsed.rotation
-          }
-          currentEl = currentEl.parentElement
-        }
-
-        // Apply transforms to bounding box
-        let finalX = bbox.x + totalTransform.x
-        let finalY = bbox.y + totalTransform.y
-        let finalWidth = bbox.width * totalTransform.scaleX
-        let finalHeight = bbox.height * totalTransform.scaleY
-
-        // Handle rotation (simplified - just expand bounds)
-        if (totalTransform.rotation !== 0) {
-          const diagonal = Math.sqrt(finalWidth * finalWidth + finalHeight * finalHeight)
-          const centerX = finalX + finalWidth / 2
-          const centerY = finalY + finalHeight / 2
-          finalX = centerX - diagonal / 2
-          finalY = centerY - diagonal / 2
-          finalWidth = diagonal
-          finalHeight = diagonal
-        }
+        // Apply transforms to bounding box using matrix transformation
+        const transformedBounds = totalMatrix ? totalMatrix.transformBounds(bbox) : bbox
 
         // Analyze animations
         const animations = analyzeElementAnimations(useEl)
@@ -460,7 +334,7 @@ async function calculateOptimization (inputFile, options = {}) {
         const effects = window.analyzeElementEffects ? window.analyzeElementEffects(useEl, svg, debug) : { hasAnyEffects: false }
 
         // Apply filter expansion if present
-        let useFinalBounds = { x: finalX, y: finalY, width: finalWidth, height: finalHeight }
+        let useFinalBounds = transformedBounds
         if (effects.filter && effects.filter.hasFilter && effects.filter.expansion) {
           useFinalBounds = window.applyFilterExpansion ? window.applyFilterExpansion(useFinalBounds, effects.filter.expansion, debug) : useFinalBounds
         }
@@ -472,7 +346,7 @@ async function calculateOptimization (inputFile, options = {}) {
         elementBounds.push({
           element: useEl,
           bounds: useFinalBounds,
-          originalBounds: { x: finalX, y: finalY, width: finalWidth, height: finalHeight },
+          originalBounds: transformedBounds,
           hasAnimations: animations.length > 0,
           animationCount: animations.length,
           animations,
@@ -489,46 +363,16 @@ async function calculateOptimization (inputFile, options = {}) {
         const bbox = getElementBounds(element)
         const animations = analyzeElementAnimations(element)
 
-        // Calculate cumulative transforms for this element
-        const totalTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
-        let currentEl = element
+        // Calculate cumulative transform matrix for this element
+        const totalMatrix = calculateCumulativeTransform ? calculateCumulativeTransform(element, svg) : null
 
-        while (currentEl && currentEl !== svg) {
-          const transform = currentEl.getAttribute('transform')
-          if (transform) {
-            const parsed = parseTransformValues(transform)
-            totalTransform.x += parsed.x
-            totalTransform.y += parsed.y
-            totalTransform.scaleX *= parsed.scaleX
-            totalTransform.scaleY *= parsed.scaleY
-            totalTransform.rotation += parsed.rotation
-          }
-          currentEl = currentEl.parentElement
-        }
+        // Apply transforms to bounding box using matrix transformation
+        const transformedBounds = totalMatrix ? totalMatrix.transformBounds(bbox) : bbox
 
-        // Apply transforms to bounding box
-        const transformedBounds = {
-          x: bbox.x + totalTransform.x,
-          y: bbox.y + totalTransform.y,
-          width: bbox.width * totalTransform.scaleX,
-          height: bbox.height * totalTransform.scaleY
-        }
-
-        if (debug && (totalTransform.x !== 0 || totalTransform.y !== 0 || totalTransform.scaleX !== 1 || totalTransform.scaleY !== 1 || totalTransform.rotation !== 0)) {
-          console.log(`    Transform applied: translate(${totalTransform.x}, ${totalTransform.y}) scale(${totalTransform.scaleX}, ${totalTransform.scaleY}) rotate(${totalTransform.rotation})`)
+        if (debug && totalMatrix && !totalMatrix.isIdentity) {
+          console.log(`    Transform matrix applied: ${totalMatrix.toString()}`)
           console.log(`    Original bounds: (${bbox.x}, ${bbox.y}) ${bbox.width}x${bbox.height}`)
           console.log(`    Transformed bounds: (${transformedBounds.x}, ${transformedBounds.y}) ${transformedBounds.width}x${transformedBounds.height}`)
-        }
-
-        // Handle rotation (simplified - just expand bounds)
-        if (totalTransform.rotation !== 0) {
-          const diagonal = Math.sqrt(transformedBounds.width * transformedBounds.width + transformedBounds.height * transformedBounds.height)
-          const centerX = transformedBounds.x + transformedBounds.width / 2
-          const centerY = transformedBounds.y + transformedBounds.height / 2
-          transformedBounds.x = centerX - diagonal / 2
-          transformedBounds.y = centerY - diagonal / 2
-          transformedBounds.width = diagonal
-          transformedBounds.height = diagonal
         }
 
         // Analyze filter, mask, and clipPath effects
@@ -547,7 +391,6 @@ async function calculateOptimization (inputFile, options = {}) {
           element,
           bounds: finalBounds,
           originalBounds: bbox,
-          transform: totalTransform,
           hasAnimations: animations.length > 0,
           animationCount: animations.length,
           animations,
