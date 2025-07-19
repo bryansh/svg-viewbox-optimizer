@@ -460,5 +460,58 @@ describe('SVG Optimization', () => {
         fs.unlinkSync(tempFile)
       }
     })
+
+    it('should handle foreignObject elements', async () => {
+      const input = path.join(fixturesDir, 'test-foreign-object.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Test foreign object SVG has 4 visual elements (3 foreignObject + 1 rect)
+      expect(result.original.viewBox).toBe('0 0 400 400')
+      expect(result.elements.count).toBe(4)
+      expect(result.elements.animationCount).toBe(1) // One animated foreignObject
+
+      // Should include all foreignObject bounds:
+      // - First at (50,50) with 100x80
+      // - Second at (200,100) translated by (20,30) = (220,130) with 120x60
+      // - Third at (50,200) animates to (150,200) with 80x80
+      // - Rect at (250,250) with 50x50
+      expect(result.content.minX).toBeLessThan(55) // First foreignObject
+      expect(result.content.maxX).toBeGreaterThan(335) // Second foreignObject at 220+120=340
+      
+      // Should achieve optimization from original 400x400
+      expect(result.savings.percentage).toBeGreaterThan(25)
+    })
+
+    it('should handle foreignObject with filters', async () => {
+      // Create a test SVG with foreignObject and filter
+      const testSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="blur">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+  <foreignObject x="50" y="50" width="60" height="40" filter="url(#blur)">
+    <div xmlns="http://www.w3.org/1999/xhtml">Blurred HTML</div>
+  </foreignObject>
+</svg>`
+
+      const tempFile = path.join(__dirname, 'temp-foreign-filter.svg')
+      fs.writeFileSync(tempFile, testSvg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+
+        // Should detect both foreignObject and filter effect
+        expect(result.elements.count).toBe(1)
+        expect(result.elements.effectsCount).toBe(1)
+
+        // Should expand bounds for blur filter
+        expect(result.content.minX).toBeLessThan(45) // 50 - blur expansion
+        expect(result.content.maxX).toBeGreaterThan(115) // 50+60 + blur expansion
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
   })
 })

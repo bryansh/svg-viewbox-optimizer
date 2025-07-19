@@ -9,7 +9,7 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 - 🎯 **Precise bounds calculation** using browser's native `getBBox()` API
 - 🎬 **Animation-aware** - accounts for animated elements' motion paths
 - 🔍 **Smart symbol handling** - correctly processes `<use>` elements and nested symbols
-- 🔧 **Advanced transform support** - handles translate, scale, rotate, skew, and matrix transforms
+- 🔧 **Advanced transform support** - handles translate, scale, rotate, skew, and matrix transforms on ALL elements
 - 🎭 **Generic container detection** - automatically identifies and processes container vs. content elements
 - 🧠 **Enhanced animation integration** - sophisticated browser-side animation processing with normalized value parsing
 - ✨ **Effects support** - handles filter, mask, and clipPath effects with accurate bounds expansion
@@ -80,6 +80,16 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 5. **Bounds Calculation**: Uses browser's `getBBox()` API with transform matrices
 6. **Optimization**: Calculates minimal bounding box containing all animated content
 7. **Output**: Updates the viewBox attribute with optimized values
+
+### Supported Element Types
+
+- **Basic shapes** - rect, circle, ellipse, line, polyline, polygon
+- **Paths** - Complex path elements with full SVG path syntax
+- **Text** - Text elements with proper bounds calculation
+- **Images** - Embedded images with correct dimensions
+- **Groups** - g elements with nested content and transforms
+- **foreignObject** - HTML/XML content embedded in SVG
+- **use** - Symbol references with transform inheritance
 
 ### Supported Transform Types
 

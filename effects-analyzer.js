@@ -101,11 +101,17 @@ function analyzeFilterDefinition(filterElement, debug = false) {
     console.log(`      Filter effects: blur=${maxBlur}, offset=(${offsetX},${offsetY}), dilate=${dilate}`)
   }
 
+  // Return expansion in pixels, not mixed with percentages
+  // The percentage expansion is relative to element size, pixel expansion is absolute
+  const pixelExpansionX = Math.abs(offsetX) + maxBlur + dilate
+  const pixelExpansionY = Math.abs(offsetY) + maxBlur + dilate
+  
   return {
-    x: Math.max(xExpansion, (Math.abs(offsetX) + maxBlur + dilate) / 100),
-    y: Math.max(yExpansion, (Math.abs(offsetY) + maxBlur + dilate) / 100),
-    width: Math.max(widthExpansion, (Math.abs(offsetX) + maxBlur + dilate) / 100),
-    height: Math.max(heightExpansion, (Math.abs(offsetY) + maxBlur + dilate) / 100)
+    x: pixelExpansionX || xExpansion,  // Use pixel if available, else percentage
+    y: pixelExpansionY || yExpansion,
+    width: pixelExpansionX * 2 || widthExpansion,  // Expand on both sides
+    height: pixelExpansionY * 2 || heightExpansion,
+    isPixelBased: pixelExpansionX > 0 || pixelExpansionY > 0
   }
 }
 
@@ -302,7 +308,15 @@ function applyFilterExpansion(bounds, expansion, debug = false) {
 
   let expandedBounds
   
-  if (expansion.x < 1 && expansion.y < 1 && expansion.width < 1 && expansion.height < 1) {
+  if (expansion.isPixelBased || expansion.x >= 1 || expansion.y >= 1 || expansion.width >= 1 || expansion.height >= 1) {
+    // Pixel-based expansion
+    expandedBounds = {
+      x: bounds.x - expansion.x,
+      y: bounds.y - expansion.y,
+      width: bounds.width + expansion.width,
+      height: bounds.height + expansion.height
+    }
+  } else {
     // Percentage-based expansion
     const xExpand = bounds.width * expansion.x
     const yExpand = bounds.height * expansion.y
@@ -314,14 +328,6 @@ function applyFilterExpansion(bounds, expansion, debug = false) {
       y: bounds.y - yExpand,
       width: bounds.width + widthExpand,
       height: bounds.height + heightExpand
-    }
-  } else {
-    // Pixel-based expansion
-    expandedBounds = {
-      x: bounds.x - expansion.x,
-      y: bounds.y - expansion.y,
-      width: bounds.width + expansion.width,
-      height: bounds.height + expansion.height
     }
   }
 

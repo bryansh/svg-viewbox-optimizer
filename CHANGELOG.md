@@ -57,6 +57,12 @@ All notable changes to this project will be documented in this file.
   - Safe mask and clipPath handling with full bounds preservation
   - Mathematical precision for blur radius calculations (3× standard deviation)
 
+- **Transform Support for All Elements**:
+  - Fixed critical bug where transforms only applied to use elements
+  - All visual elements now properly inherit cumulative transforms
+  - Supports nested groups with correct transform concatenation
+  - Added foreignObject element support with attribute-based bounds
+
 - **Generic Container Detection**:
   - Automatic symbol container identification
   - No hardcoded element-specific logic
@@ -75,6 +81,9 @@ All notable changes to this project will be documented in this file.
 - **Accuracy**: More precise bounds calculation for rotated and scaled elements
 - **Robustness**: Better handling of edge cases in transform parsing
 - **Maintainability**: Clean separation of parsing from matrix calculations
+- **Transform Inheritance**: Fixed critical bug where only use elements had transforms applied
+- **Filter Calculations**: Fixed pixel vs percentage expansion mixing in filter effects
+- **Element Support**: Added proper bounds handling for foreignObject elements
 
 ---
 

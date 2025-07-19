@@ -116,10 +116,11 @@ describe('Edge Cases and Error Handling', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        // getBBox() handles nested transforms automatically
+        // With transform fix: rect at (0,0) + transforms = (75,75) with 50x50
+        // Content bounds: (75,75) to (125,125) = width 50, height 50
         expect(result.elements.count).toBe(3) // g, g, rect
-        expect(result.content.width).toBeCloseTo(75, 1)
-        expect(result.content.height).toBeCloseTo(75, 1)
+        expect(result.content.width).toBeCloseTo(50, 1)
+        expect(result.content.height).toBeCloseTo(50, 1)
       } finally {
         fs.unlinkSync(tempFile)
       }

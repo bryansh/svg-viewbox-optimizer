@@ -184,6 +184,28 @@ async function calculateOptimization (inputFile, options = {}) {
         console.log(`Original viewBox: ${originalViewBox}`)
       }
 
+      // Helper to get bounds for elements that may not support getBBox
+      function getElementBounds(element) {
+        const tagName = element.tagName.toLowerCase()
+        
+        // foreignObject doesn't support getBBox, use attributes instead
+        if (tagName === 'foreignobject' || !element.getBBox) {
+          const x = parseFloat(element.getAttribute('x') || '0')
+          const y = parseFloat(element.getAttribute('y') || '0')
+          const width = parseFloat(element.getAttribute('width') || '0')
+          const height = parseFloat(element.getAttribute('height') || '0')
+          
+          if (debug) {
+            console.log(`    Using attributes for ${tagName}: x=${x}, y=${y}, w=${width}, h=${height}`)
+          }
+          
+          return { x, y, width, height }
+        }
+        
+        // For all other elements, use getBBox
+        return element.getBBox()
+      }
+
       // Generic container detection - no hardcoded logic
       function isContainerSymbol (symbolElement) {
         const nestedUseElements = symbolElement.querySelectorAll('use')
@@ -335,7 +357,7 @@ async function calculateOptimization (inputFile, options = {}) {
             const childReferencedSymbol = svg.querySelector(childHref)
             if (!childReferencedSymbol || isContainerSymbol(childReferencedSymbol)) return
 
-            const childBbox = childUse.getBBox()
+            const childBbox = getElementBounds(childUse)
             if (!childBbox || childBbox.width <= 0 || childBbox.height <= 0) return
 
             // Get child's transform
@@ -394,7 +416,7 @@ async function calculateOptimization (inputFile, options = {}) {
           console.log(`  Processing use element ${href}`)
         }
 
-        const bbox = useEl.getBBox()
+        const bbox = getElementBounds(useEl)
         if (!bbox || bbox.width <= 0 || bbox.height <= 0) return
 
         // Calculate cumulative transforms
@@ -460,20 +482,62 @@ async function calculateOptimization (inputFile, options = {}) {
       })
 
       // Process direct visual elements
-      const visualElements = svg.querySelectorAll('rect, circle, ellipse, line, polyline, polygon, path, text, image, g')
+      const visualElements = svg.querySelectorAll('rect, circle, ellipse, line, polyline, polygon, path, text, image, g, foreignObject')
       visualElements.forEach(element => {
         if (!shouldIncludeElement(element)) return
 
-        const bbox = element.getBBox()
+        const bbox = getElementBounds(element)
         const animations = analyzeElementAnimations(element)
+        
+        // Calculate cumulative transforms for this element
+        const totalTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
+        let currentEl = element
+        
+        while (currentEl && currentEl !== svg) {
+          const transform = currentEl.getAttribute('transform')
+          if (transform) {
+            const parsed = parseTransformValues(transform)
+            totalTransform.x += parsed.x
+            totalTransform.y += parsed.y
+            totalTransform.scaleX *= parsed.scaleX
+            totalTransform.scaleY *= parsed.scaleY
+            totalTransform.rotation += parsed.rotation
+          }
+          currentEl = currentEl.parentElement
+        }
+        
+        // Apply transforms to bounding box
+        let transformedBounds = {
+          x: bbox.x + totalTransform.x,
+          y: bbox.y + totalTransform.y,
+          width: bbox.width * totalTransform.scaleX,
+          height: bbox.height * totalTransform.scaleY
+        }
+        
+        if (debug && (totalTransform.x !== 0 || totalTransform.y !== 0 || totalTransform.scaleX !== 1 || totalTransform.scaleY !== 1 || totalTransform.rotation !== 0)) {
+          console.log(`    Transform applied: translate(${totalTransform.x}, ${totalTransform.y}) scale(${totalTransform.scaleX}, ${totalTransform.scaleY}) rotate(${totalTransform.rotation})`)
+          console.log(`    Original bounds: (${bbox.x}, ${bbox.y}) ${bbox.width}x${bbox.height}`)
+          console.log(`    Transformed bounds: (${transformedBounds.x}, ${transformedBounds.y}) ${transformedBounds.width}x${transformedBounds.height}`)
+        }
+        
+        // Handle rotation (simplified - just expand bounds)
+        if (totalTransform.rotation !== 0) {
+          const diagonal = Math.sqrt(transformedBounds.width * transformedBounds.width + transformedBounds.height * transformedBounds.height)
+          const centerX = transformedBounds.x + transformedBounds.width / 2
+          const centerY = transformedBounds.y + transformedBounds.height / 2
+          transformedBounds.x = centerX - diagonal / 2
+          transformedBounds.y = centerY - diagonal / 2
+          transformedBounds.width = diagonal
+          transformedBounds.height = diagonal
+        }
         
         // Analyze filter, mask, and clipPath effects
         const effects = window.analyzeElementEffects ? window.analyzeElementEffects(element, svg, debug) : { hasAnyEffects: false }
         
         // Apply filter expansion to bounds if present
-        let finalBounds = bbox
+        let finalBounds = transformedBounds
         if (effects.filter && effects.filter.hasFilter && effects.filter.expansion) {
-          finalBounds = window.applyFilterExpansion ? window.applyFilterExpansion(bbox, effects.filter.expansion, debug) : bbox
+          finalBounds = window.applyFilterExpansion ? window.applyFilterExpansion(transformedBounds, effects.filter.expansion, debug) : transformedBounds
         }
 
         // For animated elements, don't filter based on static bounds since animation bounds are what matter
@@ -483,6 +547,7 @@ async function calculateOptimization (inputFile, options = {}) {
           element,
           bounds: finalBounds,
           originalBounds: bbox,
+          transform: totalTransform,
           hasAnimations: animations.length > 0,
           animationCount: animations.length,
           animations,
