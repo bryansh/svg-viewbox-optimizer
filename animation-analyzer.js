@@ -6,6 +6,87 @@
 const { Matrix2D } = require('./transform-parser')
 
 /**
+ * Parse and normalize transform values into structured objects
+ */
+function parseTransformValue (valueString, transformType) {
+  const values = valueString.split(/[,\s]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v))
+  
+  switch (transformType.toLowerCase()) {
+    case 'translate':
+      return {
+        type: 'translate',
+        x: values[0] || 0,
+        y: values[1] || 0
+      }
+    
+    case 'scale':
+      return {
+        type: 'scale',
+        x: values[0] || 1,
+        y: values[1] || values[0] || 1
+      }
+    
+    case 'rotate':
+      return {
+        type: 'rotate',
+        angle: values[0] || 0,
+        cx: values[1] || 0,
+        cy: values[2] || 0
+      }
+    
+    case 'skewx':
+      return {
+        type: 'skewX',
+        angle: values[0] || 0
+      }
+    
+    case 'skewy':
+      return {
+        type: 'skewY',
+        angle: values[0] || 0
+      }
+    
+    default:
+      return {
+        type: transformType,
+        values: values
+      }
+  }
+}
+
+/**
+ * Parse and normalize attribute values (for animate elements)
+ */
+function parseAttributeValue (valueString, attributeName) {
+  const numValue = parseFloat(valueString)
+  
+  return {
+    type: 'attribute',
+    attribute: attributeName,
+    value: isNaN(numValue) ? valueString : numValue
+  }
+}
+
+/**
+ * Parse and normalize motion path values
+ */
+function parseMotionValue (valueString) {
+  // For motion paths, we'd parse SVG path data here
+  // For now, return a simplified structure
+  return {
+    type: 'motion',
+    path: valueString,
+    // TODO: Parse actual path coordinates for precise bounds
+    approximateBounds: {
+      minX: -100,
+      maxX: 100, 
+      minY: -100,
+      maxY: 100
+    }
+  }
+}
+
+/**
  * Parse animation timing and values
  */
 function parseAnimationTiming (element) {
@@ -23,34 +104,93 @@ function parseAnimationTiming (element) {
 }
 
 /**
- * Parse keyframes from values/keyTimes/keySplines
+ * Enhanced keyframes parser with normalized values and calcMode support
  */
 function parseKeyframes (element) {
   const values = element.getAttribute('values')
   const keyTimes = element.getAttribute('keyTimes')
   const keySplines = element.getAttribute('keySplines')
-
+  const calcMode = element.getAttribute('calcMode') || 'linear'
+  const animationType = element.tagName.toLowerCase()
+  
+  // Get the type of animation for value parsing
+  const transformType = element.getAttribute('type') // for animateTransform
+  const attributeName = element.getAttribute('attributeName') // for animate
+  
+  // Handle from/to/by syntax
   if (!values) {
     const from = element.getAttribute('from')
     const to = element.getAttribute('to')
     const by = element.getAttribute('by')
 
     if (from && to) {
-      return [{ time: 0, value: from }, { time: 1, value: to }]
+      return [
+        { time: 0, value: parseValueByType(from, animationType, transformType, attributeName) },
+        { time: 1, value: parseValueByType(to, animationType, transformType, attributeName) }
+      ]
     } else if (from && by) {
-      return [{ time: 0, value: from }, { time: 1, value: by }]
+      return [
+        { time: 0, value: parseValueByType(from, animationType, transformType, attributeName) },
+        { time: 1, value: parseValueByType(by, animationType, transformType, attributeName) }
+      ]
     }
     return []
   }
 
   const valueList = values.split(';').map(v => v.trim())
   const timeList = keyTimes ? keyTimes.split(';').map(t => parseFloat(t.trim())) : null
-
+  const splineList = keySplines ? keySplines.split(';') : null
+  
+  // Generate default keyTimes based on calcMode if not provided
+  const defaultTimes = generateDefaultKeyTimes(valueList.length, calcMode)
+  const finalTimes = timeList || defaultTimes
+  
   return valueList.map((value, index) => ({
-    time: timeList ? timeList[index] : index / (valueList.length - 1),
-    value,
-    spline: keySplines ? keySplines.split(';')[index] : null
+    time: finalTimes[index] || (index / (valueList.length - 1)),
+    value: parseValueByType(value, animationType, transformType, attributeName),
+    spline: splineList ? splineList[index] : null,
+    calcMode: calcMode
   }))
+}
+
+/**
+ * Parse a value based on animation type
+ */
+function parseValueByType (valueString, animationType, transformType, attributeName) {
+  switch (animationType) {
+    case 'animatetransform':
+      return parseTransformValue(valueString, transformType)
+    case 'animate':
+      return parseAttributeValue(valueString, attributeName)
+    case 'animatemotion':
+      return parseMotionValue(valueString)
+    default:
+      return { type: 'unknown', value: valueString }
+  }
+}
+
+/**
+ * Generate default keyTimes based on calcMode
+ */
+function generateDefaultKeyTimes (numValues, calcMode) {
+  if (numValues <= 1) return [0]
+  
+  switch (calcMode) {
+    case 'discrete':
+    case 'linear':
+    case 'spline':
+      // Evenly distributed from 0 to 1
+      return Array.from({ length: numValues }, (_, i) => i / (numValues - 1))
+    
+    case 'paced':
+      // For paced mode, timing depends on the distance between values
+      // For now, fall back to linear distribution
+      // TODO: Calculate actual paced timing based on value distances
+      return Array.from({ length: numValues }, (_, i) => i / (numValues - 1))
+    
+    default:
+      return Array.from({ length: numValues }, (_, i) => i / (numValues - 1))
+  }
 }
 
 /**
@@ -69,33 +209,36 @@ function analyzeAnimateTransform (animElement, debug = false) {
   const transforms = []
 
   keyframes.forEach(keyframe => {
-    const values = keyframe.value.split(/[,\s]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v))
+    const value = keyframe.value // Now a normalized object
     let matrix
 
-    switch (type.toLowerCase()) {
+    // Use normalized value objects instead of raw parsing
+    switch (value.type) {
       case 'translate':
-        matrix = Matrix2D.translate(values[0] || 0, values[1] || 0)
+        matrix = Matrix2D.translate(value.x, value.y)
         break
       case 'scale':
-        matrix = Matrix2D.scale(values[0] || 1, values[1] || values[0] || 1)
+        matrix = Matrix2D.scale(value.x, value.y)
         break
       case 'rotate':
-        matrix = Matrix2D.rotate(values[0] || 0, values[1] || 0, values[2] || 0)
+        matrix = Matrix2D.rotate(value.angle, value.cx, value.cy)
         break
-      case 'skewx':
-        matrix = Matrix2D.skewX(values[0] || 0)
+      case 'skewX':
+        matrix = Matrix2D.skewX(value.angle)
         break
-      case 'skewy':
-        matrix = Matrix2D.skewY(values[0] || 0)
+      case 'skewY':
+        matrix = Matrix2D.skewY(value.angle)
         break
       default:
+        console.warn(`Unknown transform type: ${value.type}`)
         matrix = Matrix2D.identity()
     }
 
     transforms.push({
       time: keyframe.time,
       matrix,
-      values
+      normalizedValue: value,
+      calcMode: keyframe.calcMode
     })
   })
 
@@ -122,7 +265,9 @@ function analyzeAnimate (animElement, debug = false) {
 
   const values = keyframes.map(keyframe => ({
     time: keyframe.time,
-    value: parseFloat(keyframe.value) || 0
+    normalizedValue: keyframe.value,
+    value: keyframe.value.value, // Extract the parsed numeric/string value
+    calcMode: keyframe.calcMode
   }))
 
   return {

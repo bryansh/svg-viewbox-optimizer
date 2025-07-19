@@ -1,14 +1,14 @@
 {
   "name": "svg-viewbox-optimizer",
   "version": "1.0.0",
-  "description": "Optimize SVG viewBox to minimize whitespace around animated content",
+  "description": "Advanced SVG viewBox optimizer with support for complex transforms, animations, and modular architecture",
   "main": "viewbox-calculator.js",
   "bin": {
     "svg-optimize": "./index.js"
   },
   "scripts": {
     "test": "jest",
-    "test:sample": "node index.js thunderstorms-overcast.svg",
+    "test:sample": "node index.js examples/thunderstorms-overcast.svg",
     "lint": "standard",
     "lint:fix": "standard --fix"
   },
@@ -16,7 +16,12 @@
     "svg",
     "optimization",
     "viewbox",
-    "animation"
+    "animation",
+    "transform",
+    "matrix",
+    "bounds",
+    "puppeteer",
+    "cli"
   ],
   "author": "Your Name <your.email@example.com>",
   "license": "MIT",
