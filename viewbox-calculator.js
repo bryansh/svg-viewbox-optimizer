@@ -27,6 +27,9 @@ async function calculateOptimization (inputFile, options = {}) {
 
     const page = await browser.newPage()
 
+    // For now, let's use a simpler approach that still removes hardcoded logic
+    // but works within the browser context without complex module loading
+
     // Capture console output
     if (options.debug) {
       page.on('console', msg => console.log('Browser console:', msg.text()))
@@ -44,7 +47,7 @@ async function calculateOptimization (inputFile, options = {}) {
 
     await page.setContent(html)
 
-    // Calculate bounds using browser
+    // Calculate bounds using the new modular architecture
     const bounds = await page.evaluate((debugMode) => {
       const debug = debugMode
       const svg = document.querySelector('svg')
@@ -62,227 +65,276 @@ async function calculateOptimization (inputFile, options = {}) {
 
       const [, , origWidth, origHeight] = originalViewBox.split(' ').map(Number)
 
-      let globalMinX = Infinity
-      let globalMinY = Infinity
-      let globalMaxX = -Infinity
-      let globalMaxY = -Infinity
+      if (debug) {
+        console.log('=== SVG ViewBox Optimization (Generic Architecture) ===')
+        console.log(`Original viewBox: ${originalViewBox}`)
+      }
 
+      // Generic container detection - no hardcoded logic
+      function isContainerSymbol (symbolElement) {
+        const nestedUseElements = symbolElement.querySelectorAll('use')
+        return nestedUseElements.length > 0
+      }
+
+      function shouldIncludeElement (element) {
+        // Skip elements inside defs or symbol definitions
+        let parent = element.parentElement
+        while (parent && parent !== svg) {
+          const tagName = parent.tagName.toLowerCase()
+          if (tagName === 'defs' || tagName === 'symbol') {
+            return false
+          }
+          parent = parent.parentElement
+        }
+        return true
+      }
+
+      // Generic transform parsing (handles translate, scale, rotate)
+      function parseTransformValues (transformString) {
+        if (!transformString) return { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
+
+        const result = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
+
+        // Parse translate
+        const translateMatch = transformString.match(/translate\(([^)]+)\)/)
+        if (translateMatch) {
+          const values = translateMatch[1].split(/[,\s]+/).map(v => parseFloat(v.trim()))
+          result.x = values[0] || 0
+          result.y = values[1] || 0
+        }
+
+        // Parse scale
+        const scaleMatch = transformString.match(/scale\(([^)]+)\)/)
+        if (scaleMatch) {
+          const values = scaleMatch[1].split(/[,\s]+/).map(v => parseFloat(v.trim()))
+          result.scaleX = values[0] || 1
+          result.scaleY = values[1] || values[0] || 1
+        }
+
+        // Parse rotate
+        const rotateMatch = transformString.match(/rotate\(([^)]+)\)/)
+        if (rotateMatch) {
+          const values = rotateMatch[1].split(/[,\s]+/).map(v => parseFloat(v.trim()))
+          result.rotation = values[0] || 0
+        }
+
+        return result
+      }
+
+      // Generic animation analysis
+      function analyzeElementAnimations (element) {
+        const animations = []
+        const animatedElements = svg.querySelectorAll('animateTransform')
+
+        animatedElements.forEach(anim => {
+          if (anim.parentElement === element) {
+            const values = anim.getAttribute('values')
+            const type = anim.getAttribute('type')
+
+            if (type === 'translate' && values) {
+              const translateValues = values.split(';').map(v => {
+                const [x, y] = v.trim().split(/\s+/).map(Number)
+                return { x: x || 0, y: y || 0 }
+              })
+
+              const minTransX = Math.min(...translateValues.map(t => t.x))
+              const maxTransX = Math.max(...translateValues.map(t => t.x))
+              const minTransY = Math.min(...translateValues.map(t => t.y))
+              const maxTransY = Math.max(...translateValues.map(t => t.y))
+
+              animations.push({ minTransX, maxTransX, minTransY, maxTransY })
+            }
+          }
+        })
+
+        return animations
+      }
+
+      // Calculate bounds for all relevant elements
       const elementBounds = []
 
-      // Helper function to process use elements with getBBox() like HTML method
-      function processUseElement (useEl) {
+      // Process use elements
+      const useElements = svg.querySelectorAll('use')
+      if (debug) {
+        console.log(`Processing ${useElements.length} use elements`)
+      }
+
+      useElements.forEach(useEl => {
+        if (!shouldIncludeElement(useEl)) return
+
         const href = useEl.getAttribute('xlink:href') || useEl.getAttribute('href')
         if (!href || !href.startsWith('#')) return
 
         const referencedSymbol = svg.querySelector(href)
         if (!referencedSymbol) return
 
-        if (debug) {
-          console.log(`\\nElement ${href}:`)
-          console.log(`  Attributes: x=${useEl.getAttribute('x')}, y=${useEl.getAttribute('y')}, width=${useEl.getAttribute('width')}, height=${useEl.getAttribute('height')}`)
-          console.log(`  Transform: ${useEl.getAttribute('transform')}`)
-        }
-
-        // Check if this symbol contains nested use elements (making it a container)
-        const nestedUseElements = referencedSymbol.querySelectorAll('use')
-
-        if (nestedUseElements.length > 0) {
-          // This is a container symbol - skip it completely (like HTML method)
+        // Handle container symbols by processing their child use elements
+        if (isContainerSymbol(referencedSymbol)) {
           if (debug) {
-            console.log(`  Symbol ${href} is a container with ${nestedUseElements.length} nested use elements - skipping container`)
+            console.log(`  Processing container symbol ${href} - expanding children`)
           }
-          return
-        }
 
-        // This is a leaf element - use getBBox() like HTML method
-        const bbox = useEl.getBBox()
-
-        if (debug) {
-          console.log(`  Raw getBBox: x=${bbox.x}, y=${bbox.y}, width=${bbox.width}, height=${bbox.height}`)
-        }
-
-        if (bbox && bbox.width > 0 && bbox.height > 0) {
-          // Collect all transforms from this element up to the root SVG
-          let totalX = 0; let totalY = 0
+          // Get the transform for the container use element
+          const containerTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
           let currentEl = useEl
 
           while (currentEl && currentEl !== svg) {
             const transform = currentEl.getAttribute('transform')
-            if (debug) {
-              console.log(`    Checking element: ${currentEl.tagName}, transform: ${transform}, is svg: ${currentEl === svg}`)
-            }
             if (transform) {
-              const match = transform.match(/translate\(([^)]+)\)/)
-              if (debug) {
-                console.log(`    Regex match result: ${match}`)
-              }
-              if (match) {
-                const values = match[1].split(/[,\s]+/)
-                if (debug) {
-                  console.log(`    Split values: [${values.join(', ')}]`)
-                }
-                const tX = parseFloat(values[0]) || 0
-                const tY = parseFloat(values[1]) || 0
-                totalX += tX
-                totalY += tY
-                if (debug) {
-                  console.log(`    Transform found: translate(${tX}, ${tY})`)
-                }
-              }
+              const parsed = parseTransformValues(transform)
+              containerTransform.x += parsed.x
+              containerTransform.y += parsed.y
+              containerTransform.scaleX *= parsed.scaleX
+              containerTransform.scaleY *= parsed.scaleY
+              containerTransform.rotation += parsed.rotation
             }
             currentEl = currentEl.parentElement
-            if (debug && !currentEl) {
-              console.log('    Parent element is null, stopping')
+          }
+
+          // Process each child use element in the container
+          const childUseElements = referencedSymbol.querySelectorAll('use')
+          childUseElements.forEach(childUse => {
+            const childHref = childUse.getAttribute('xlink:href') || childUse.getAttribute('href')
+            if (!childHref || !childHref.startsWith('#')) return
+
+            const childReferencedSymbol = svg.querySelector(childHref)
+            if (!childReferencedSymbol || isContainerSymbol(childReferencedSymbol)) return
+
+            const childBbox = childUse.getBBox()
+            if (!childBbox || childBbox.width <= 0 || childBbox.height <= 0) return
+
+            // Get child's transform
+            const childTransform = parseTransformValues(childUse.getAttribute('transform'))
+
+            // Combine container and child transforms
+            let finalX = childBbox.x + containerTransform.x + childTransform.x
+            let finalY = childBbox.y + containerTransform.y + childTransform.y
+            let finalWidth = childBbox.width * containerTransform.scaleX * childTransform.scaleX
+            let finalHeight = childBbox.height * containerTransform.scaleY * childTransform.scaleY
+
+            // Handle rotation (simplified)
+            const totalRotation = containerTransform.rotation + childTransform.rotation
+            if (totalRotation !== 0) {
+              const diagonal = Math.sqrt(finalWidth * finalWidth + finalHeight * finalHeight)
+              const centerX = finalX + finalWidth / 2
+              const centerY = finalY + finalHeight / 2
+              finalX = centerX - diagonal / 2
+              finalY = centerY - diagonal / 2
+              finalWidth = diagonal
+              finalHeight = diagonal
             }
-          }
 
-          if (debug) {
-            console.log(`  Accumulated transform: (${totalX}, ${totalY})`)
-          }
+            // Analyze animations on the child element
+            const animations = analyzeElementAnimations(childUse)
 
-          // Find animations that affect this element
-          const animations = []
-          const animatedElements = svg.querySelectorAll('animateTransform')
-
-          animatedElements.forEach(anim => {
-            const parent = anim.parentElement
-            if (parent === useEl) {
-              const values = anim.getAttribute('values')
-              const type = anim.getAttribute('type')
-
-              if (debug) {
-                console.log(`    Animation found: type=${type}, values=${values}`)
-              }
-
-              if (type === 'translate' && values) {
-                const translateValues = values.split(';').map(v => {
-                  const [x, y] = v.trim().split(/\s+/).map(Number)
-                  return { x: x || 0, y: y || 0 }
-                })
-
-                // Calculate min/max translations
-                const minTransX = Math.min(...translateValues.map(t => t.x))
-                const maxTransX = Math.max(...translateValues.map(t => t.x))
-                const minTransY = Math.min(...translateValues.map(t => t.y))
-                const maxTransY = Math.max(...translateValues.map(t => t.y))
-
-                if (debug) {
-                  console.log(`      Animation range: X [${minTransX}, ${maxTransX}], Y [${minTransY}, ${maxTransY}]`)
-                }
-                animations.push({ minTransX, maxTransX, minTransY, maxTransY })
-              }
-            }
-          })
-
-          // Calculate final position like HTML method
-          let finalX = bbox.x + totalX
-          let finalY = bbox.y + totalY
-
-          if (debug) {
-            console.log(`  Initial position: bbox (${bbox.x}, ${bbox.y}) + transform (${totalX}, ${totalY}) = (${finalX}, ${finalY})`)
-          }
-
-          // Manual fix: elements #e and #f are inside container #d which has transform="translate(68.84 145)"
-          if (href === '#e' || href === '#f') {
-            // These are inside the #d container, add its transform
-            finalX += 68.84
-            finalY += 145
             if (debug) {
-              console.log(`  Container correction: +68.84, +145 = (${finalX}, ${finalY})`)
+              console.log(`    ${childHref}: bounds (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}, ${animations.length} animations`)
             }
-          }
 
-          if (debug) {
-            console.log(`  Final corrected position: (${finalX}, ${finalY})`)
-          }
-
-          elementBounds.push({
-            href,
-            baseX: finalX,
-            baseY: finalY,
-            width: bbox.width,
-            height: bbox.height,
-            animations
+            elementBounds.push({
+              element: childUse,
+              bounds: { x: finalX, y: finalY, width: finalWidth, height: finalHeight },
+              hasAnimations: animations.length > 0,
+              animationCount: animations.length,
+              animations
+            })
           })
+
+          return // Skip processing the container use element itself
         }
-      }
 
-      // Process use elements exactly like HTML method
-      const useElements = svg.querySelectorAll('use')
+        if (debug) {
+          console.log(`  Processing use element ${href}`)
+        }
 
-      if (debug) {
-        console.log(`\\n=== Processing Use Elements ===\\nFound ${useElements.length} use elements`)
-      }
+        const bbox = useEl.getBBox()
+        if (!bbox || bbox.width <= 0 || bbox.height <= 0) return
 
-      useElements.forEach((useEl, index) => {
-        processUseElement(useEl)
+        // Calculate cumulative transforms
+        const totalTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
+        let currentEl = useEl
+
+        while (currentEl && currentEl !== svg) {
+          const transform = currentEl.getAttribute('transform')
+          if (transform) {
+            const parsed = parseTransformValues(transform)
+            totalTransform.x += parsed.x
+            totalTransform.y += parsed.y
+            totalTransform.scaleX *= parsed.scaleX
+            totalTransform.scaleY *= parsed.scaleY
+            totalTransform.rotation += parsed.rotation
+          }
+          currentEl = currentEl.parentElement
+        }
+
+        // Apply transforms to bounding box
+        let finalX = bbox.x + totalTransform.x
+        let finalY = bbox.y + totalTransform.y
+        let finalWidth = bbox.width * totalTransform.scaleX
+        let finalHeight = bbox.height * totalTransform.scaleY
+
+        // Handle rotation (simplified - just expand bounds)
+        if (totalTransform.rotation !== 0) {
+          const diagonal = Math.sqrt(finalWidth * finalWidth + finalHeight * finalHeight)
+          const centerX = finalX + finalWidth / 2
+          const centerY = finalY + finalHeight / 2
+          finalX = centerX - diagonal / 2
+          finalY = centerY - diagonal / 2
+          finalWidth = diagonal
+          finalHeight = diagonal
+        }
+
+        // Analyze animations
+        const animations = analyzeElementAnimations(useEl)
+
+        if (debug) {
+          console.log(`  ${href}: bounds (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}, ${animations.length} animations`)
+        }
+
+        elementBounds.push({
+          element: useEl,
+          bounds: { x: finalX, y: finalY, width: finalWidth, height: finalHeight },
+          hasAnimations: animations.length > 0,
+          animationCount: animations.length,
+          animations
+        })
       })
 
-      // Also handle direct visual elements (not inside symbols)
-      const directElements = svg.querySelectorAll('rect, circle, ellipse, line, polyline, polygon, path, text, image, g')
-      directElements.forEach(element => {
-        // Skip elements inside symbols or defs (they'll be handled via use elements)
-        let parent = element.parentElement
-        while (parent && parent !== svg) {
-          const tagName = parent.tagName && parent.tagName.toLowerCase()
-          if (tagName === 'symbol' || tagName === 'defs') {
-            return
-          }
-          parent = parent.parentElement
-        }
+      // Process direct visual elements
+      const visualElements = svg.querySelectorAll('rect, circle, ellipse, line, polyline, polygon, path, text, image, g')
+      visualElements.forEach(element => {
+        if (!shouldIncludeElement(element)) return
 
         const bbox = element.getBBox()
-        if (bbox && bbox.width > 0 && bbox.height > 0) {
-          // Find animations that affect this element
-          const animations = []
-          const animatedElements = svg.querySelectorAll('animateTransform')
+        if (!bbox || bbox.width <= 0 || bbox.height <= 0) return
 
-          animatedElements.forEach(anim => {
-            const parent = anim.parentElement
-            if (parent === element) {
-              const values = anim.getAttribute('values')
-              const type = anim.getAttribute('type')
+        const animations = analyzeElementAnimations(element)
 
-              if (type === 'translate' && values) {
-                const translateValues = values.split(';').map(v => {
-                  const [x, y] = v.trim().split(/\s+/).map(Number)
-                  return { x: x || 0, y: y || 0 }
-                })
-
-                const minTransX = Math.min(...translateValues.map(t => t.x))
-                const maxTransX = Math.max(...translateValues.map(t => t.x))
-                const minTransY = Math.min(...translateValues.map(t => t.y))
-                const maxTransY = Math.max(...translateValues.map(t => t.y))
-
-                animations.push({ minTransX, maxTransX, minTransY, maxTransY })
-              }
-            }
-          })
-
-          elementBounds.push({
-            href: element.id || element.tagName,
-            baseX: bbox.x,
-            baseY: bbox.y,
-            width: bbox.width,
-            height: bbox.height,
-            animations
-          })
-        }
+        elementBounds.push({
+          element,
+          bounds: bbox,
+          hasAnimations: animations.length > 0,
+          animationCount: animations.length,
+          animations
+        })
       })
 
-      // Calculate the exact bounds
-      elementBounds.forEach(element => {
-        if (element.animations.length > 0) {
-          // Animated element - calculate extremes
-          element.animations.forEach(anim => {
-            // Left edge: baseX + minTranslationX
-            const minX = element.baseX + anim.minTransX
-            // Right edge: baseX + width + maxTranslationX
-            const maxX = element.baseX + element.width + anim.maxTransX
-            // Top edge: baseY + minTranslationY
-            const minY = element.baseY + anim.minTransY
-            // Bottom edge: baseY + height + maxTranslationY
-            const maxY = element.baseY + element.height + anim.maxTransY
+      // Calculate global bounds including animations
+      let globalMinX = Infinity
+      let globalMinY = Infinity
+      let globalMaxX = -Infinity
+      let globalMaxY = -Infinity
+
+      elementBounds.forEach(item => {
+        const bounds = item.bounds
+
+        if (item.hasAnimations) {
+          // Calculate bounds with animation extremes
+          item.animations.forEach(anim => {
+            const minX = bounds.x + anim.minTransX
+            const maxX = bounds.x + bounds.width + anim.maxTransX
+            const minY = bounds.y + anim.minTransY
+            const maxY = bounds.y + bounds.height + anim.maxTransY
 
             globalMinX = Math.min(globalMinX, minX)
             globalMinY = Math.min(globalMinY, minY)
@@ -291,29 +343,42 @@ async function calculateOptimization (inputFile, options = {}) {
           })
         } else {
           // Static element
-          const minX = element.baseX
-          const maxX = element.baseX + element.width
-          const minY = element.baseY
-          const maxY = element.baseY + element.height
-
-          globalMinX = Math.min(globalMinX, minX)
-          globalMinY = Math.min(globalMinY, minY)
-          globalMaxX = Math.max(globalMaxX, maxX)
-          globalMaxY = Math.max(globalMaxY, maxY)
+          globalMinX = Math.min(globalMinX, bounds.x)
+          globalMinY = Math.min(globalMinY, bounds.y)
+          globalMaxX = Math.max(globalMaxX, bounds.x + bounds.width)
+          globalMaxY = Math.max(globalMaxY, bounds.y + bounds.height)
         }
       })
+
+      const globalBounds = {
+        x: globalMinX,
+        y: globalMinY,
+        width: globalMaxX - globalMinX,
+        height: globalMaxY - globalMinY
+      }
+
+      const animationCount = elementBounds.reduce((sum, item) => sum + item.animationCount, 0)
+
+      if (debug) {
+        console.log(`Found ${elementBounds.length} elements, ${animationCount} animations`)
+        console.log(`Global bounds: (${globalBounds.x.toFixed(2)}, ${globalBounds.y.toFixed(2)}) ${globalBounds.width.toFixed(2)}x${globalBounds.height.toFixed(2)}`)
+      }
 
       return {
         originalViewBox,
         origWidth,
         origHeight,
-        globalMinX,
-        globalMinY,
-        globalMaxX,
-        globalMaxY,
+        globalMinX: globalBounds.x,
+        globalMinY: globalBounds.y,
+        globalMaxX: globalBounds.x + globalBounds.width,
+        globalMaxY: globalBounds.y + globalBounds.height,
         elementCount: elementBounds.length,
-        animationCount: elementBounds.filter(e => e.animations.length > 0).reduce((sum, e) => sum + e.animations.length, 0),
-        elements: elementBounds.map(e => ({ id: e.href, animations: e.animations.length }))
+        animationCount,
+        elements: elementBounds.map(item => ({
+          id: item.element.id || item.element.tagName,
+          animations: item.animationCount,
+          hasAnimations: item.hasAnimations
+        }))
       }
     }, options.debug)
 

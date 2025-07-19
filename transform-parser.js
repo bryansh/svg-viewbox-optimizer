@@ -1,0 +1,229 @@
+/**
+ * SVG Transform Parser
+ * Handles parsing and calculation of all SVG transform types using 2D transformation matrices
+ */
+
+/**
+ * 2D Transformation Matrix
+ * Represents: [a c e]
+ *             [b d f]
+ *             [0 0 1]
+ */
+class Matrix2D {
+  constructor (a = 1, b = 0, c = 0, d = 1, e = 0, f = 0) {
+    this.a = a
+    this.b = b
+    this.c = c
+    this.d = d
+    this.e = e
+    this.f = f
+  }
+
+  /**
+   * Multiply this matrix with another matrix
+   * Returns a new matrix representing the combined transformation
+   */
+  multiply (other) {
+    return new Matrix2D(
+      this.a * other.a + this.c * other.b,
+      this.b * other.a + this.d * other.b,
+      this.a * other.c + this.c * other.d,
+      this.b * other.c + this.d * other.d,
+      this.a * other.e + this.c * other.f + this.e,
+      this.b * other.e + this.d * other.f + this.f
+    )
+  }
+
+  /**
+   * Transform a point using this matrix
+   */
+  transformPoint (x, y) {
+    return {
+      x: this.a * x + this.c * y + this.e,
+      y: this.b * x + this.d * y + this.f
+    }
+  }
+
+  /**
+   * Transform a bounding box by transforming all 4 corners
+   * Returns the new bounding box that contains all transformed corners
+   */
+  transformBounds (bbox) {
+    const corners = [
+      { x: bbox.x, y: bbox.y },
+      { x: bbox.x + bbox.width, y: bbox.y },
+      { x: bbox.x, y: bbox.y + bbox.height },
+      { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+    ]
+
+    const transformedCorners = corners.map(corner => this.transformPoint(corner.x, corner.y))
+
+    const xs = transformedCorners.map(c => c.x)
+    const ys = transformedCorners.map(c => c.y)
+
+    return {
+      x: Math.min(...xs),
+      y: Math.min(...ys),
+      width: Math.max(...xs) - Math.min(...xs),
+      height: Math.max(...ys) - Math.min(...ys)
+    }
+  }
+
+  /**
+   * Get identity matrix
+   */
+  static identity () {
+    return new Matrix2D()
+  }
+
+  /**
+   * Create translation matrix
+   */
+  static translate (tx, ty = 0) {
+    return new Matrix2D(1, 0, 0, 1, tx, ty)
+  }
+
+  /**
+   * Create scale matrix
+   */
+  static scale (sx, sy = sx) {
+    return new Matrix2D(sx, 0, 0, sy, 0, 0)
+  }
+
+  /**
+   * Create rotation matrix (angle in degrees)
+   */
+  static rotate (angle, cx = 0, cy = 0) {
+    const rad = (angle * Math.PI) / 180
+    const cos = Math.cos(rad)
+    const sin = Math.sin(rad)
+
+    if (cx === 0 && cy === 0) {
+      return new Matrix2D(cos, sin, -sin, cos, 0, 0)
+    } else {
+      // Rotate around a point: translate to origin, rotate, translate back
+      return Matrix2D.translate(cx, cy)
+        .multiply(new Matrix2D(cos, sin, -sin, cos, 0, 0))
+        .multiply(Matrix2D.translate(-cx, -cy))
+    }
+  }
+
+  /**
+   * Create skewX matrix (angle in degrees)
+   */
+  static skewX (angle) {
+    const rad = (angle * Math.PI) / 180
+    return new Matrix2D(1, 0, Math.tan(rad), 1, 0, 0)
+  }
+
+  /**
+   * Create skewY matrix (angle in degrees)
+   */
+  static skewY (angle) {
+    const rad = (angle * Math.PI) / 180
+    return new Matrix2D(1, Math.tan(rad), 0, 1, 0, 0)
+  }
+
+  toString () {
+    return `matrix(${this.a}, ${this.b}, ${this.c}, ${this.d}, ${this.e}, ${this.f})`
+  }
+}
+
+/**
+ * Parse a single transform function from a transform string
+ */
+function parseTransformFunction (func, args) {
+  const values = args.split(/[,\s]+/).map(v => parseFloat(v.trim())).filter(v => !isNaN(v))
+
+  switch (func.toLowerCase()) {
+    case 'translate':
+      return Matrix2D.translate(values[0] || 0, values[1] || 0)
+
+    case 'translatex':
+      return Matrix2D.translate(values[0] || 0, 0)
+
+    case 'translatey':
+      return Matrix2D.translate(0, values[0] || 0)
+
+    case 'scale':
+      return Matrix2D.scale(values[0] || 1, values[1] || values[0] || 1)
+
+    case 'scalex':
+      return Matrix2D.scale(values[0] || 1, 1)
+
+    case 'scaley':
+      return Matrix2D.scale(1, values[0] || 1)
+
+    case 'rotate':
+      return Matrix2D.rotate(values[0] || 0, values[1] || 0, values[2] || 0)
+
+    case 'skewx':
+      return Matrix2D.skewX(values[0] || 0)
+
+    case 'skewy':
+      return Matrix2D.skewY(values[0] || 0)
+
+    case 'matrix':
+      return new Matrix2D(
+        values[0] || 1, values[1] || 0, values[2] || 0,
+        values[3] || 1, values[4] || 0, values[5] || 0
+      )
+
+    default:
+      console.warn(`Unknown transform function: ${func}`)
+      return Matrix2D.identity()
+  }
+}
+
+/**
+ * Parse a complete transform attribute string
+ * Examples:
+ *   "translate(10 20)"
+ *   "translate(10, 20) scale(2) rotate(45)"
+ *   "matrix(1 0 0 1 10 20)"
+ */
+function parseTransform (transformString) {
+  if (!transformString) {
+    return Matrix2D.identity()
+  }
+
+  // Regex to match transform functions: function_name(arguments)
+  const transformRegex = /(\w+)\s*\(([^)]*)\)/g
+  let match
+  let matrix = Matrix2D.identity()
+
+  while ((match = transformRegex.exec(transformString)) !== null) {
+    const func = match[1]
+    const args = match[2]
+    const transform = parseTransformFunction(func, args)
+    matrix = matrix.multiply(transform)
+  }
+
+  return matrix
+}
+
+/**
+ * Calculate the cumulative transform matrix for an element
+ * by traversing up the DOM tree and accumulating transforms
+ */
+function calculateCumulativeTransform (element, rootElement) {
+  let matrix = Matrix2D.identity()
+  let current = element
+
+  while (current && current !== rootElement) {
+    const transform = current.getAttribute('transform')
+    if (transform) {
+      const elementMatrix = parseTransform(transform)
+      matrix = elementMatrix.multiply(matrix)
+    }
+    current = current.parentElement
+  }
+
+  return matrix
+}
+
+module.exports = {
+  Matrix2D,
+  parseTransform,
+  calculateCumulativeTransform
+}
