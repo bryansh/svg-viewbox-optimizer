@@ -30,6 +30,11 @@ async function calculateOptimization (inputFile, options = {}) {
     // Inject our enhanced animation analysis modules into browser context
     const animationAnalyzerCode = fs.readFileSync('./animation-analyzer.js', 'utf8')
       .replace(/const \{ Matrix2D \} = require\('.*'\)/, '') // Remove Node.js require
+      .replace(/const \{ calculatePathBounds, calculateMotionValuesBounds \} = require\('.*'\)/, '') // Remove path parser require
+      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
+
+    // Inject SVG path parser for browser context
+    const pathParserCode = fs.readFileSync('./svg-path-parser.js', 'utf8')
       .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
 
     // Capture console output
@@ -125,6 +130,9 @@ async function calculateOptimization (inputFile, options = {}) {
               };
             }
           }
+          
+          // SVG path parser functions (browser-compatible)
+          ${pathParserCode}
           
           // Enhanced animation analysis functions (browser-compatible)
           ${animationAnalyzerCode}
@@ -227,7 +235,7 @@ async function calculateOptimization (inputFile, options = {}) {
           if (anim.parentElement === element) {
             // Use enhanced analysis if available
             if (typeof window.analyzeAnimation === 'function') {
-              const analysis = window.analyzeAnimation(anim, debug)
+              const analysis = window.analyzeAnimation(anim, svg, debug)
               if (analysis) {
                 animations.push(analysis)
               }
@@ -524,7 +532,10 @@ async function calculateOptimization (inputFile, options = {}) {
               })
             } else if (anim.type === 'animateMotion') {
               // Enhanced format: handle motion path animations
-              const motionBounds = anim.approximateBounds
+              const motionBounds = anim.expandedBounds || anim.motionBounds
+              if (debug) {
+                console.log(`    Processing animateMotion with bounds: (${motionBounds.minX}, ${motionBounds.minY}) to (${motionBounds.maxX}, ${motionBounds.maxY})`)
+              }
               globalMinX = Math.min(globalMinX, bounds.x + motionBounds.minX)
               globalMinY = Math.min(globalMinY, bounds.y + motionBounds.minY)
               globalMaxX = Math.max(globalMaxX, bounds.x + bounds.width + motionBounds.maxX)

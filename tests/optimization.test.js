@@ -104,6 +104,100 @@ describe('SVG Optimization', () => {
     })
   })
 
+  describe('Animation support', () => {
+    it('should handle animateMotion with path parsing', async () => {
+      const input = path.join(fixturesDir, 'test-motion.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Test motion SVG has complex paths and motion animations
+      expect(result.original.viewBox).toBe('0 0 400 400')
+      expect(result.elements.count).toBe(4) // 1 use + 3 animated elements
+      expect(result.elements.animationCount).toBe(3) // 3 animateMotion elements
+
+      // Should optimize significantly from original 400x400
+      expect(result.savings.percentage).toBeGreaterThan(25)
+
+      // Bounds should capture all motion paths
+      // Based on our test file: paths go from ~20,300 to ~350,350 with rotation buffer
+      expect(result.content.minX).toBeLessThan(50)
+      expect(result.content.maxX).toBeGreaterThan(300)
+      expect(result.content.minY).toBeLessThan(150)
+      expect(result.content.maxY).toBeGreaterThan(300)
+    })
+
+    it('should parse SVG path data correctly', async () => {
+      const input = path.join(fixturesDir, 'test-motion.svg')
+      const result = await calculateOptimization(input, { buffer: 10, debug: false })
+
+      // Should find elements with motion animations
+      const animatedElements = result.elements.details.filter(el => el.hasAnimations)
+      expect(animatedElements).toHaveLength(3)
+
+      // Should account for all animation types
+      expect(result.elements.animationCount).toBe(3)
+    })
+
+    it('should handle mpath references', async () => {
+      // Create a test SVG with mpath reference
+      const testSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <path id="curve" d="M 20,50 Q 100,20 180,50"/>
+  </defs>
+  <circle r="5" fill="red">
+    <animateMotion dur="2s" repeatCount="indefinite">
+      <mpath href="#curve"/>
+    </animateMotion>
+  </circle>
+</svg>`
+
+      const tempFile = path.join(__dirname, 'temp-mpath.svg')
+      fs.writeFileSync(tempFile, testSvg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+
+        // Should detect motion animation and optimize around the curve
+        expect(result.elements.animationCount).toBe(1)
+        expect(result.savings.percentage).toBeGreaterThan(0)
+
+        // Bounds should capture the quadratic curve from 20,50 to 180,50
+        expect(result.content.minX).toBeLessThan(25)
+        expect(result.content.maxX).toBeGreaterThan(175)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
+
+    it('should handle coordinate-based motion values', async () => {
+      // Create a test SVG with values-based motion
+      const testSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="10" height="10" fill="blue">
+    <animateMotion dur="3s" values="50,100; 100,50; 150,100; 200,50; 250,100"/>
+  </rect>
+</svg>`
+
+      const tempFile = path.join(__dirname, 'temp-values.svg')
+      fs.writeFileSync(tempFile, testSvg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+
+        // Should detect motion animation
+        expect(result.elements.animationCount).toBe(1)
+
+        // Bounds should capture motion from x=50 to x=260 (250+10), y=50 to y=110 (100+10)
+        expect(result.content.minX).toBeLessThan(55)
+        expect(result.content.maxX).toBeGreaterThan(255)
+        expect(result.content.minY).toBeLessThan(55)
+        expect(result.content.maxY).toBeGreaterThan(105)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
+  })
+
   describe('Real-world scenarios', () => {
     it('should handle complex weather icon', async () => {
       const weatherIcon = path.join(__dirname, '..', 'thunderstorms-overcast.svg')

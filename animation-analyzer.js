@@ -4,6 +4,7 @@
  */
 
 const { Matrix2D } = require('./transform-parser')
+const { calculatePathBounds, calculateMotionValuesBounds } = require('./svg-path-parser')
 
 /**
  * Parse and normalize transform values into structured objects
@@ -70,18 +71,22 @@ function parseAttributeValue (valueString, attributeName) {
 /**
  * Parse and normalize motion path values
  */
-function parseMotionValue (valueString) {
-  // For motion paths, we'd parse SVG path data here
-  // For now, return a simplified structure
-  return {
-    type: 'motion',
-    path: valueString,
-    // TODO: Parse actual path coordinates for precise bounds
-    approximateBounds: {
-      minX: -100,
-      maxX: 100,
-      minY: -100,
-      maxY: 100
+function parseMotionValue (valueString, isPath = false) {
+  if (isPath) {
+    // Parse SVG path data
+    const bounds = calculatePathBounds(valueString)
+    return {
+      type: 'motion',
+      path: valueString,
+      bounds
+    }
+  } else {
+    // Parse coordinate values (x1,y1;x2,y2;...)
+    const bounds = calculateMotionValuesBounds(valueString)
+    return {
+      type: 'motion',
+      values: valueString,
+      bounds
     }
   }
 }
@@ -163,7 +168,7 @@ function parseValueByType (valueString, animationType, transformType, attributeN
     case 'animate':
       return parseAttributeValue(valueString, attributeName)
     case 'animatemotion':
-      return parseMotionValue(valueString)
+      return parseMotionValue(valueString, true) // Assume path format for keyframes
     default:
       return { type: 'unknown', value: valueString }
   }
@@ -281,30 +286,78 @@ function analyzeAnimate (animElement, debug = false) {
 /**
  * Analyze animateMotion elements (path-based animation)
  */
-function analyzeAnimateMotion (animElement, debug = false) {
+function analyzeAnimateMotion (animElement, svg, debug = false) {
   const path = animElement.getAttribute('path')
+  const values = animElement.getAttribute('values')
   const timing = parseAnimationTiming(animElement)
   const rotate = animElement.getAttribute('rotate') || '0'
 
   if (debug) {
-    console.log(`    AnimateMotion: path=${path ? 'defined' : 'none'}, rotate=${rotate}`)
+    console.log(`    AnimateMotion: path=${path ? 'defined' : 'none'}, values=${values ? 'defined' : 'none'}, rotate=${rotate}`)
   }
 
-  // For now, we'll approximate motion paths as a bounding box
-  // A full implementation would need to parse SVG path data and calculate positions
-  const approximateBounds = {
-    minX: -100, // Conservative estimates - could be improved with actual path parsing
-    maxX: 100,
-    minY: -100,
-    maxY: 100
+  let motionBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+
+  if (path) {
+    // Direct path attribute
+    motionBounds = calculatePathBounds(path, debug)
+  } else if (values) {
+    // Values attribute with coordinate pairs
+    motionBounds = calculateMotionValuesBounds(values, debug)
+  } else {
+    // Check for mpath element
+    const mpath = animElement.querySelector('mpath')
+    if (mpath) {
+      const href = mpath.getAttribute('href') || mpath.getAttribute('xlink:href')
+      if (href && href.startsWith('#')) {
+        const referencedPath = svg.querySelector(href)
+        if (referencedPath && referencedPath.tagName.toLowerCase() === 'path') {
+          const pathData = referencedPath.getAttribute('d')
+          if (pathData) {
+            motionBounds = calculatePathBounds(pathData, debug)
+            if (debug) {
+              console.log(`      Using mpath reference: ${href}`)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Handle rotation effects on bounds
+  let rotationExpansion = 0
+  if (rotate === 'auto' || rotate === 'auto-reverse') {
+    // Auto rotation can expand bounds depending on element size
+    // For now, add a conservative buffer
+    rotationExpansion = 20
+  } else if (rotate !== '0') {
+    // Fixed rotation angle
+    const angle = parseFloat(rotate)
+    if (!isNaN(angle)) {
+      rotationExpansion = Math.abs(Math.sin(angle * Math.PI / 180)) * 20 + Math.abs(Math.cos(angle * Math.PI / 180)) * 20
+    }
+  }
+
+  const expandedBounds = {
+    minX: motionBounds.minX - rotationExpansion,
+    maxX: motionBounds.maxX + rotationExpansion,
+    minY: motionBounds.minY - rotationExpansion,
+    maxY: motionBounds.maxY + rotationExpansion
+  }
+
+  if (debug) {
+    console.log(`      Motion bounds: (${motionBounds.minX.toFixed(2)}, ${motionBounds.minY.toFixed(2)}) to (${motionBounds.maxX.toFixed(2)}, ${motionBounds.maxY.toFixed(2)})`)
+    console.log(`      With rotation expansion: (${expandedBounds.minX.toFixed(2)}, ${expandedBounds.minY.toFixed(2)}) to (${expandedBounds.maxX.toFixed(2)}, ${expandedBounds.maxY.toFixed(2)})`)
   }
 
   return {
     type: 'animateMotion',
     path,
+    values,
     rotate,
     timing,
-    approximateBounds
+    motionBounds,
+    expandedBounds
   }
 }
 
@@ -317,14 +370,14 @@ function findElementAnimations (element, svg, debug = false) {
   // Find direct child animations
   const childAnimations = element.querySelectorAll('animateTransform, animate, animateMotion')
   childAnimations.forEach(anim => {
-    animations.push(analyzeAnimation(anim, debug))
+    animations.push(analyzeAnimation(anim, svg, debug))
   })
 
   // Find animations targeting this element by id
   if (element.id) {
     const targetedAnimations = svg.querySelectorAll(`animateTransform[href="#${element.id}"], animate[href="#${element.id}"], animateMotion[href="#${element.id}"]`)
     targetedAnimations.forEach(anim => {
-      animations.push(analyzeAnimation(anim, debug))
+      animations.push(analyzeAnimation(anim, svg, debug))
     })
   }
 
@@ -334,7 +387,7 @@ function findElementAnimations (element, svg, debug = false) {
 /**
  * Analyze any animation element
  */
-function analyzeAnimation (animElement, debug = false) {
+function analyzeAnimation (animElement, svg, debug = false) {
   const tagName = animElement.tagName.toLowerCase()
 
   switch (tagName) {
@@ -343,7 +396,7 @@ function analyzeAnimation (animElement, debug = false) {
     case 'animate':
       return analyzeAnimate(animElement, debug)
     case 'animatemotion':
-      return analyzeAnimateMotion(animElement, debug)
+      return analyzeAnimateMotion(animElement, svg, debug)
     default:
       if (debug) {
         console.warn(`Unknown animation type: ${tagName}`)
