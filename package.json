@@ -1,0 +1,46 @@
+{
+  "name": "svg-viewbox-optimizer",
+  "version": "1.0.0",
+  "description": "Optimize SVG viewBox to minimize whitespace around animated content",
+  "main": "viewbox-calculator.js",
+  "bin": {
+    "svg-optimize": "./index.js"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:sample": "node index.js thunderstorms-overcast.svg",
+    "lint": "standard",
+    "lint:fix": "standard --fix"
+  },
+  "keywords": [
+    "svg",
+    "optimization",
+    "viewbox",
+    "animation"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/svg-viewbox-optimizer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/svg-viewbox-optimizer/issues"
+  },
+  "homepage": "https://github.com/yourusername/svg-viewbox-optimizer#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "puppeteer": "^24.14.0"
+  },
+  "devDependencies": {
+    "jest": "^30.0.4",
+    "standard": "^17.1.2"
+  },
+  "standard": {
+    "env": ["jest"]
+  }
+}
