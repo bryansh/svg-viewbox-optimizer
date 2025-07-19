@@ -363,5 +363,102 @@ describe('SVG Optimization', () => {
         expect(result.elements.animationCount).toBeGreaterThan(0)
       }
     })
+
+    it('should handle filter effects correctly', async () => {
+      const input = path.join(fixturesDir, 'test-filters.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Test filters SVG has 4 elements with various filter effects
+      expect(result.original.viewBox).toBe('0 0 300 300')
+      expect(result.elements.count).toBe(4)
+      expect(result.elements.effectsCount).toBe(4) // All 4 elements have filters
+
+      // Should expand bounds due to filter effects
+      // The simple rect at (50,50) 40x40 with blur should expand beyond its static bounds
+      expect(result.content.minX).toBeLessThan(45) // Blur should expand left
+      expect(result.content.minY).toBeLessThan(45) // Blur should expand up
+      expect(result.content.maxX).toBeGreaterThan(95) // Blur should expand right
+      expect(result.content.maxY).toBeGreaterThan(95) // Blur should expand down
+
+      // Should still achieve some optimization
+      expect(result.savings.percentage).toBeGreaterThan(10)
+    })
+
+    it('should handle mask and clipPath effects', async () => {
+      const input = path.join(fixturesDir, 'test-mask-clippath.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Test mask/clippath SVG has 4 elements with various effects
+      expect(result.original.viewBox).toBe('0 0 250 250')
+      expect(result.elements.count).toBe(4)
+      expect(result.elements.effectsCount).toBe(4) // All elements have mask, clipPath, or both
+
+      // For mask and clipPath, we preserve full element bounds for safety
+      // So bounds should include full elements even if visually clipped
+      expect(result.content.minX).toBeLessThan(55) // Should include full rect bounds
+      expect(result.content.maxX).toBeGreaterThan(190) // Should include rightmost elements
+
+      // Should still achieve optimization from original 250x250
+      expect(result.savings.percentage).toBeGreaterThan(15)
+    })
+
+    it('should handle combined filter and animation effects', async () => {
+      // Create a test SVG with both animation and filter
+      const testSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+  </defs>
+  <rect x="50" y="50" width="30" height="30" fill="blue" filter="url(#glow)">
+    <animateTransform attributeName="transform" type="translate" 
+                     values="0,0; 50,0; 0,0" dur="2s" repeatCount="indefinite"/>
+  </rect>
+</svg>`
+
+      const tempFile = path.join(__dirname, 'temp-filter-animation.svg')
+      fs.writeFileSync(tempFile, testSvg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+
+        // Should detect both animation and filter
+        expect(result.elements.animationCount).toBe(1)
+        expect(result.elements.effectsCount).toBe(1)
+
+        // Should account for both animation translation and filter expansion
+        // Animation moves rect from x=50 to x=100, filter expands bounds further
+        expect(result.content.minX).toBeLessThan(45) // Filter expansion
+        expect(result.content.maxX).toBeGreaterThan(135) // Animation + filter
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
+
+    it('should handle CSS filter functions', async () => {
+      // Create a test SVG with CSS filter functions
+      const testSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+  <rect x="40" y="40" width="30" height="30" fill="red" style="filter: blur(6px)"/>
+  <circle cx="100" cy="100" r="15" fill="green" style="filter: drop-shadow(8px 8px 4px rgba(0,0,0,0.5))"/>
+</svg>`
+
+      const tempFile = path.join(__dirname, 'temp-css-filters.svg')
+      fs.writeFileSync(tempFile, testSvg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+
+        // Should detect CSS filters as effects
+        expect(result.elements.effectsCount).toBe(2)
+
+        // Should expand bounds for CSS blur and drop-shadow
+        expect(result.content.minX).toBeLessThan(35) // Blur expansion
+        expect(result.content.maxX).toBeGreaterThan(120) // Drop shadow expansion
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
   })
 })

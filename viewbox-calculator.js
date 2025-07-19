@@ -42,6 +42,10 @@ async function calculateOptimization (inputFile, options = {}) {
       .replace(/const \{ Matrix2D \} = require\('.*'\)/, '') // Remove Node.js require
       .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
 
+    // Inject effects analyzer for browser context
+    const effectsAnalyzerCode = fs.readFileSync('./effects-analyzer.js', 'utf8')
+      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
+
     // Capture console output
     if (options.debug) {
       page.on('console', msg => console.log('Browser console:', msg.text()))
@@ -141,6 +145,9 @@ async function calculateOptimization (inputFile, options = {}) {
           
           // Animation combiner functions (browser-compatible)
           ${animationCombinerCode}
+          
+          // Effects analyzer functions (browser-compatible)
+          ${effectsAnalyzerCode}
           
           // Enhanced animation analysis functions (browser-compatible)
           ${animationAnalyzerCode}
@@ -354,17 +361,29 @@ async function calculateOptimization (inputFile, options = {}) {
 
             // Analyze animations on the child element
             const animations = analyzeElementAnimations(childUse)
+            
+            // Analyze effects on the child element
+            const effects = window.analyzeElementEffects ? window.analyzeElementEffects(childUse, svg, debug) : { hasAnyEffects: false }
+            
+            // Apply filter expansion if present
+            let childFinalBounds = { x: finalX, y: finalY, width: finalWidth, height: finalHeight }
+            if (effects.filter && effects.filter.hasFilter && effects.filter.expansion) {
+              childFinalBounds = window.applyFilterExpansion ? window.applyFilterExpansion(childFinalBounds, effects.filter.expansion, debug) : childFinalBounds
+            }
 
             if (debug) {
-              console.log(`    ${childHref}: bounds (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}, ${animations.length} animations`)
+              console.log(`    ${childHref}: bounds (${childFinalBounds.x.toFixed(2)}, ${childFinalBounds.y.toFixed(2)}) ${childFinalBounds.width.toFixed(2)}x${childFinalBounds.height.toFixed(2)}, ${animations.length} animations, effects: ${effects.hasAnyEffects}`)
             }
 
             elementBounds.push({
               element: childUse,
-              bounds: { x: finalX, y: finalY, width: finalWidth, height: finalHeight },
+              bounds: childFinalBounds,
+              originalBounds: { x: finalX, y: finalY, width: finalWidth, height: finalHeight },
               hasAnimations: animations.length > 0,
               animationCount: animations.length,
-              animations
+              animations,
+              effects,
+              hasEffects: effects.hasAnyEffects
             })
           })
 
@@ -414,17 +433,29 @@ async function calculateOptimization (inputFile, options = {}) {
 
         // Analyze animations
         const animations = analyzeElementAnimations(useEl)
+        
+        // Analyze effects
+        const effects = window.analyzeElementEffects ? window.analyzeElementEffects(useEl, svg, debug) : { hasAnyEffects: false }
+        
+        // Apply filter expansion if present
+        let useFinalBounds = { x: finalX, y: finalY, width: finalWidth, height: finalHeight }
+        if (effects.filter && effects.filter.hasFilter && effects.filter.expansion) {
+          useFinalBounds = window.applyFilterExpansion ? window.applyFilterExpansion(useFinalBounds, effects.filter.expansion, debug) : useFinalBounds
+        }
 
         if (debug) {
-          console.log(`  ${href}: bounds (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}, ${animations.length} animations`)
+          console.log(`  ${href}: bounds (${useFinalBounds.x.toFixed(2)}, ${useFinalBounds.y.toFixed(2)}) ${useFinalBounds.width.toFixed(2)}x${useFinalBounds.height.toFixed(2)}, ${animations.length} animations, effects: ${effects.hasAnyEffects}`)
         }
 
         elementBounds.push({
           element: useEl,
-          bounds: { x: finalX, y: finalY, width: finalWidth, height: finalHeight },
+          bounds: useFinalBounds,
+          originalBounds: { x: finalX, y: finalY, width: finalWidth, height: finalHeight },
           hasAnimations: animations.length > 0,
           animationCount: animations.length,
-          animations
+          animations,
+          effects,
+          hasEffects: effects.hasAnyEffects
         })
       })
 
@@ -435,16 +466,28 @@ async function calculateOptimization (inputFile, options = {}) {
 
         const bbox = element.getBBox()
         const animations = analyzeElementAnimations(element)
+        
+        // Analyze filter, mask, and clipPath effects
+        const effects = window.analyzeElementEffects ? window.analyzeElementEffects(element, svg, debug) : { hasAnyEffects: false }
+        
+        // Apply filter expansion to bounds if present
+        let finalBounds = bbox
+        if (effects.filter && effects.filter.hasFilter && effects.filter.expansion) {
+          finalBounds = window.applyFilterExpansion ? window.applyFilterExpansion(bbox, effects.filter.expansion, debug) : bbox
+        }
 
         // For animated elements, don't filter based on static bounds since animation bounds are what matter
-        if ((!bbox || bbox.width <= 0 || bbox.height <= 0) && animations.length === 0) return
+        if ((!bbox || bbox.width <= 0 || bbox.height <= 0) && animations.length === 0 && !effects.hasAnyEffects) return
 
         elementBounds.push({
           element,
-          bounds: bbox,
+          bounds: finalBounds,
+          originalBounds: bbox,
           hasAnimations: animations.length > 0,
           animationCount: animations.length,
-          animations
+          animations,
+          effects,
+          hasEffects: effects.hasAnyEffects
         })
       })
 
@@ -615,9 +658,10 @@ async function calculateOptimization (inputFile, options = {}) {
       }
 
       const animationCount = elementBounds.reduce((sum, item) => sum + item.animationCount, 0)
+      const effectsCount = elementBounds.reduce((sum, item) => sum + (item.hasEffects ? 1 : 0), 0)
 
       if (debug) {
-        console.log(`Found ${elementBounds.length} elements, ${animationCount} animations`)
+        console.log(`Found ${elementBounds.length} elements, ${animationCount} animations, ${effectsCount} elements with effects`)
         console.log(`Global bounds: (${globalBounds.x.toFixed(2)}, ${globalBounds.y.toFixed(2)}) ${globalBounds.width.toFixed(2)}x${globalBounds.height.toFixed(2)}`)
       }
 
@@ -631,10 +675,12 @@ async function calculateOptimization (inputFile, options = {}) {
         globalMaxY: globalBounds.y + globalBounds.height,
         elementCount: elementBounds.length,
         animationCount,
+        effectsCount,
         elements: elementBounds.map(item => ({
           id: item.element.id || item.element.tagName,
           animations: item.animationCount,
-          hasAnimations: item.hasAnimations
+          hasAnimations: item.hasAnimations,
+          hasEffects: item.hasEffects || false
         }))
       }
     }, options.debug)
@@ -681,6 +727,7 @@ async function calculateOptimization (inputFile, options = {}) {
       elements: {
         count: bounds.elementCount,
         animationCount: bounds.animationCount,
+        effectsCount: bounds.effectsCount,
         details: bounds.elements
       },
       savings: {

@@ -5,9 +5,12 @@ All notable changes to this project will be documented in this file.
 ## [1.1.0] - 2025-07-19
 
 ### Added
-- **Modular Architecture**: Separated concerns into 4 specialized modules
+- **Modular Architecture**: Separated concerns into 7 specialized modules
   - `transform-parser.js` - 2D matrix transformation system
   - `animation-analyzer.js` - Comprehensive animation analysis
+  - `effects-analyzer.js` - Filter, mask, clipPath effects analysis
+  - `animation-combiner.js` - Overlapping animation combination
+  - `svg-path-parser.js` - SVG path data parsing with Bezier mathematics
   - `bounds-calculator.js` - Precise element bounds calculation
   - `container-detector.js` - Generic container vs content detection
 
@@ -46,6 +49,13 @@ All notable changes to this project will be documented in this file.
   - Proper additive animation combining using matrix multiplication
   - Separate handling of additive vs non-additive animations
   - Time sampling for accurate bounds across all animation states
+
+- **Comprehensive Effects Support**:
+  - Complete SVG filter analysis with region and primitive parsing
+  - CSS filter function support with robust non-regex parsing
+  - Directional bounds expansion for drop shadows and offsets
+  - Safe mask and clipPath handling with full bounds preservation
+  - Mathematical precision for blur radius calculations (3× standard deviation)
 
 - **Generic Container Detection**:
   - Automatic symbol container identification

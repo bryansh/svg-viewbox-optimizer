@@ -12,6 +12,7 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 - 🔧 **Advanced transform support** - handles translate, scale, rotate, skew, and matrix transforms
 - 🎭 **Generic container detection** - automatically identifies and processes container vs. content elements
 - 🧠 **Enhanced animation integration** - sophisticated browser-side animation processing with normalized value parsing
+- ✨ **Effects support** - handles filter, mask, and clipPath effects with accurate bounds expansion
 - 📊 **Detailed reporting** - shows space savings and element analysis
 - 🛡️ **Safe defaults** - adds configurable padding around content
 - 🏗️ **Modular architecture** - extensible design for complex SVG processing
@@ -99,6 +100,20 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 - **Overlapping animations** - Multiple simultaneous animations with proper additive combining
 - **Keyframe analysis** - Proper keyTimes and calcMode support across all animation types
 
+### Supported Effects
+
+- **SVG Filters** - Complete support for filter definitions with region calculation and primitive analysis
+  - `feGaussianBlur` - Blur effects with accurate radius expansion
+  - `feDropShadow` - Drop shadow effects with directional offset calculation
+  - `feOffset` - Element offset transformations
+  - `feMorphology` - Dilate and erode operations
+- **CSS Filters** - Modern CSS filter functions with robust parsing
+  - `blur()` - CSS blur with mathematical precision
+  - `drop-shadow()` - CSS drop shadows with complex parameter handling
+- **Masks and ClipPaths** - Safe bounds preservation for masked/clipped content
+  - `mask` - URL references to mask definitions
+  - `clip-path` - URL references and CSS functions (circle, polygon, etc.)
+
 ### Example Results
 
 Original SVG with wasteful viewBox:
@@ -142,6 +157,9 @@ svg-viewbox-optimizer/
 ├── viewbox-calculator.js      # Main calculation engine
 ├── transform-parser.js        # 2D matrix transform system
 ├── animation-analyzer.js      # Animation parsing & analysis
+├── effects-analyzer.js        # Filter, mask, clipPath effects analysis
+├── animation-combiner.js      # Overlapping animation combination
+├── svg-path-parser.js         # SVG path data parsing with Bezier math
 ├── bounds-calculator.js       # Element bounds calculation
 ├── container-detector.js      # Container vs content detection
 └── index.js                   # CLI interface
