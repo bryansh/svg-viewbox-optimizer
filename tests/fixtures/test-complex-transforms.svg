@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <!-- Nested transform inheritance -->
+  <g transform="translate(50, 50) scale(1.5)">
+    <g transform="rotate(45) skewX(15)">
+      <rect x="10" y="10" width="40" height="40" fill="red">
+        <animateTransform attributeName="transform" type="translate" 
+                         values="0,0; 100,0; 100,100; 0,100; 0,0" dur="4s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+  </g>
+
+  <!-- Multiple simultaneous transforms on same element -->
+  <circle cx="200" cy="200" r="20" fill="blue">
+    <animateTransform attributeName="transform" type="translate" additive="sum"
+                     values="0,0; 50,0; 0,50; -50,0; 0,0" dur="3s" repeatCount="indefinite"/>
+    <animateTransform attributeName="transform" type="rotate" additive="sum"
+                     values="0; 360" dur="2s" repeatCount="indefinite"/>
+    <animateTransform attributeName="transform" type="scale" additive="sum"
+                     values="1; 2; 1" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Complex matrix transforms -->
+  <polygon points="300,100 350,50 400,100 400,150 300,150" fill="green">
+    <animateTransform attributeName="transform" type="matrix" 
+                     values="1,0,0,1,0,0; 1.5,0.5,-0.5,1.5,20,30; 1,0,0,1,0,0" 
+                     dur="5s" repeatCount="indefinite"/>
+  </polygon>
+
+  <!-- Skew transforms with rotation center -->
+  <ellipse cx="100" cy="350" rx="40" ry="20" fill="orange">
+    <animateTransform attributeName="transform" type="skewX" 
+                     values="0; 45; -45; 0" dur="3s" repeatCount="indefinite"/>
+  </ellipse>
+
+  <!-- Scale with center point -->
+  <rect x="350" y="350" width="60" height="30" fill="purple">
+    <animateTransform attributeName="transform" type="scale" 
+                     values="1,1; 2,0.5; 0.5,2; 1,1" dur="4s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- Rotation around specific center -->
+  <path d="M 400,200 L 450,200 L 450,250 L 400,250 Z" fill="cyan">
+    <animateTransform attributeName="transform" type="rotate" 
+                     values="0 425 225; 90 425 225; 180 425 225; 270 425 225; 360 425 225" 
+                     dur="6s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- Combined transform with from/to syntax -->
+  <text x="250" y="450" font-size="20" fill="black">Test
+    <animateTransform attributeName="transform" type="translate" 
+                     from="0,0" to="100,-50" dur="2s" repeatCount="indefinite" direction="alternate"/>
+  </text>
+
+  <!-- Complex cumulative transforms -->
+  <g transform="translate(150, 300) rotate(30) scale(1.2)">
+    <g transform="skewY(10) translate(20, 20)">
+      <circle cx="0" cy="0" r="15" fill="magenta">
+        <animateTransform attributeName="transform" type="rotate" 
+                         values="0; 180; 360" dur="3s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+  </g>
+</svg>

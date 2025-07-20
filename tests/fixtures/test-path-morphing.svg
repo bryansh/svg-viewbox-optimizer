@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Path that morphs from a circle to a star -->
+  <path fill="red" stroke="blue" stroke-width="2">
+    <animate attributeName="d" dur="3s" repeatCount="indefinite"
+             values="M 150,50 A 50,50 0 1,1 149.99,50 Z;
+                     M 150,40 L 160,80 L 200,80 L 170,110 L 180,150 L 150,130 L 120,150 L 130,110 L 100,80 L 140,80 Z;
+                     M 150,50 A 50,50 0 1,1 149.99,50 Z"/>
+  </path>
+
+  <!-- Path that morphs with different shapes -->
+  <path fill="green" stroke="purple" stroke-width="2">
+    <animate attributeName="d" dur="2s" repeatCount="indefinite"
+             values="M 50,200 L 100,200 L 100,250 L 50,250 Z;
+                     M 75,180 Q 50,200 75,220 Q 100,200 75,180;
+                     M 50,200 L 100,200 L 100,250 L 50,250 Z"/>
+  </path>
+
+  <!-- Complex path morphing with curves -->
+  <path fill="orange" stroke="black" stroke-width="1">
+    <animate attributeName="d" dur="4s" repeatCount="indefinite"
+             values="M 200,200 C 200,180 220,180 240,200 C 260,220 260,240 240,260 C 220,280 200,280 180,260 C 160,240 160,220 180,200 C 180,180 200,180 200,200;
+                     M 200,200 L 240,200 L 260,240 L 240,280 L 200,280 L 160,240 Z;
+                     M 200,200 C 200,180 220,180 240,200 C 260,220 260,240 240,260 C 220,280 200,280 180,260 C 160,240 160,220 180,200 C 180,180 200,180 200,200"/>
+  </path>
+
+  <!-- Simple line to path morphing -->
+  <path fill="none" stroke="cyan" stroke-width="3">
+    <animate attributeName="d" dur="1.5s" repeatCount="indefinite"
+             values="M 250,50 L 290,50;
+                     M 250,50 Q 270,30 290,50;
+                     M 250,50 L 290,50"/>
+  </path>
+</svg>

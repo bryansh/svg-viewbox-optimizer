@@ -40,6 +40,7 @@ build/
 # Test artifacts
 *.svg.bak
 *_optimized.svg
-test-*.svg
 test-*.html
 debug-*.html
+# Exclude test artifacts but keep fixture files
+!tests/fixtures/test-*.svg

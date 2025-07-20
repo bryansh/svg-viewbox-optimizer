@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple overlapping translate + rotate -->
+  <rect x="50" y="50" width="40" height="40" fill="red">
+    <animateTransform attributeName="transform" type="translate" additive="sum"
+                     values="0,0; 50,0; 0,0" dur="2s" repeatCount="indefinite"/>
+    <animateTransform attributeName="transform" type="rotate" additive="sum"
+                     values="0; 180; 0" dur="3s" repeatCount="indefinite"/>
+  </rect>
+</svg>
