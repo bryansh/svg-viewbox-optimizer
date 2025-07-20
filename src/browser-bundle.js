@@ -113,8 +113,16 @@ class BrowserBundle {
     processedCode = processedCode.replace(/const \{ Matrix2D \} = require\('.*'\)/g, '')
     processedCode = processedCode.replace(/const \{ calculatePathBounds, calculateMotionValuesBounds \} = require\('.*'\)/g, '')
 
-    // Remove module.exports
-    processedCode = processedCode.replace(/module\.exports = \{[^}]*\}/g, '')
+    // Replace module.exports with window assignments for browser compatibility
+    processedCode = processedCode.replace(/module\.exports = \{([^}]*)\}/g, (match, exports) => {
+      // Extract function names from exports
+      const functionNames = exports.split(',').map(name => name.trim()).filter(name => name)
+
+      // Create window assignments
+      const windowAssignments = functionNames.map(name => `window.${name} = ${name}`).join('\n')
+
+      return windowAssignments
+    })
 
     // Add comment header for debugging
     processedCode = `// === ${filename} (processed) ===\n${processedCode}`

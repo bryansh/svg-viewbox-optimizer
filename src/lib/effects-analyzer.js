@@ -227,6 +227,8 @@ function analyzeCSSFilters (filterString, debug = false) {
     }
   }
 
+  // CSS filters are always pixel-based
+  expansion.isPixelBased = true
   return expansion
 }
 

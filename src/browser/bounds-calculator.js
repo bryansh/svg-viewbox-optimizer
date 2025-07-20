@@ -65,13 +65,28 @@ window.BoundsCalculator = (function () {
       }
     }
 
-    // For all other elements, use getBBox
+    // For all other elements, use getBBox and account for markers
     try {
       const bbox = element.getBBox()
+
+      // Check for markers and expand bounds accordingly
+      const markerBounds = calculateMarkerBounds(element, bbox, debug)
+
+      const finalBounds = {
+        x: Math.min(bbox.x, markerBounds.minX),
+        y: Math.min(bbox.y, markerBounds.minY),
+        width: Math.max(bbox.x + bbox.width, markerBounds.maxX) - Math.min(bbox.x, markerBounds.minX),
+        height: Math.max(bbox.y + bbox.height, markerBounds.maxY) - Math.min(bbox.y, markerBounds.minY)
+      }
+
       if (debug) {
         console.log(`  ${tagName} getBBox: x=${bbox.x}, y=${bbox.y}, w=${bbox.width}, h=${bbox.height}`)
+        if (markerBounds.hasMarkers) {
+          console.log(`  ${tagName} with markers: x=${finalBounds.x}, y=${finalBounds.y}, w=${finalBounds.width}, h=${finalBounds.height}`)
+        }
       }
-      return bbox
+
+      return finalBounds
     } catch (e) {
       if (debug) {
         console.log(`  getBBox failed for ${tagName}:`, e)
@@ -163,6 +178,188 @@ window.BoundsCalculator = (function () {
     }
 
     return transformedBounds
+  }
+
+  /**
+   * Calculate additional bounds needed for markers on an element
+   * @param {Element} element - The element to check for markers
+   * @param {Object} elementBounds - The element's base bounds
+   * @param {boolean} debug - Enable debug logging
+   * @returns {Object} Marker bounds information
+   */
+  function calculateMarkerBounds (element, elementBounds, debug = false) {
+    const markerStart = element.getAttribute('marker-start')
+    const markerMid = element.getAttribute('marker-mid')
+    const markerEnd = element.getAttribute('marker-end')
+
+    if (!markerStart && !markerMid && !markerEnd) {
+      return {
+        hasMarkers: false,
+        minX: elementBounds.x,
+        minY: elementBounds.y,
+        maxX: elementBounds.x + elementBounds.width,
+        maxY: elementBounds.y + elementBounds.height
+      }
+    }
+
+    let minX = elementBounds.x
+    let minY = elementBounds.y
+    let maxX = elementBounds.x + elementBounds.width
+    let maxY = elementBounds.y + elementBounds.height
+
+    const tagName = element.tagName.toLowerCase()
+
+    // Get element points for marker positioning
+    const points = getElementPoints(element, tagName)
+
+    if (debug) {
+      console.log(`  Calculating marker bounds for ${tagName} with ${points.length} points`)
+    }
+
+    // Process each marker type
+    if (markerStart && points.length > 0) {
+      const markerBounds = getMarkerBounds(markerStart, points[0], debug)
+      if (markerBounds) {
+        minX = Math.min(minX, markerBounds.x)
+        minY = Math.min(minY, markerBounds.y)
+        maxX = Math.max(maxX, markerBounds.x + markerBounds.width)
+        maxY = Math.max(maxY, markerBounds.y + markerBounds.height)
+      }
+    }
+
+    if (markerEnd && points.length > 0) {
+      const markerBounds = getMarkerBounds(markerEnd, points[points.length - 1], debug)
+      if (markerBounds) {
+        minX = Math.min(minX, markerBounds.x)
+        minY = Math.min(minY, markerBounds.y)
+        maxX = Math.max(maxX, markerBounds.x + markerBounds.width)
+        maxY = Math.max(maxY, markerBounds.y + markerBounds.height)
+      }
+    }
+
+    if (markerMid && points.length > 2) {
+      // Apply to all intermediate points
+      for (let i = 1; i < points.length - 1; i++) {
+        const markerBounds = getMarkerBounds(markerMid, points[i], debug)
+        if (markerBounds) {
+          minX = Math.min(minX, markerBounds.x)
+          minY = Math.min(minY, markerBounds.y)
+          maxX = Math.max(maxX, markerBounds.x + markerBounds.width)
+          maxY = Math.max(maxY, markerBounds.y + markerBounds.height)
+        }
+      }
+    }
+
+    return {
+      hasMarkers: true,
+      minX,
+      minY,
+      maxX,
+      maxY
+    }
+  }
+
+  /**
+   * Extract points from different element types for marker positioning
+   * @param {Element} element - The SVG element
+   * @param {string} tagName - Element tag name
+   * @returns {Array} Array of {x, y} points
+   */
+  function getElementPoints (element, tagName) {
+    switch (tagName) {
+      case 'line': {
+        return [
+          { x: parseFloat(element.getAttribute('x1') || '0'), y: parseFloat(element.getAttribute('y1') || '0') },
+          { x: parseFloat(element.getAttribute('x2') || '0'), y: parseFloat(element.getAttribute('y2') || '0') }
+        ]
+      }
+
+      case 'polyline':
+      case 'polygon': {
+        const points = element.getAttribute('points') || ''
+        return points.trim().split(/[\s,]+/).reduce((acc, val, idx, arr) => {
+          if (idx % 2 === 0 && idx + 1 < arr.length) {
+            acc.push({ x: parseFloat(val), y: parseFloat(arr[idx + 1]) })
+          }
+          return acc
+        }, [])
+      }
+
+      case 'path': {
+        // For paths, we approximate with start and end points
+        // A full implementation would parse the entire path
+        const d = element.getAttribute('d') || ''
+        const commands = d.match(/[MmLlHhVvCcSsQqTtAaZz][^MmLlHhVvCcSsQqTtAaZz]*/g) || []
+
+        if (commands.length === 0) return []
+
+        // Get start point from first command
+        const firstCmd = commands[0]
+        const firstMatch = firstCmd.match(/[MmLl]\s*([\d.-]+)[\s,]+([\d.-]+)/)
+        if (!firstMatch) return []
+
+        const startPoint = { x: parseFloat(firstMatch[1]), y: parseFloat(firstMatch[2]) }
+
+        // For simplicity, assume end point is the last coordinate in the path
+        const lastCmd = commands[commands.length - 1]
+        const lastMatch = lastCmd.match(/([\d.-]+)[\s,]+([\d.-]+)(?!.*[\d.-])/)
+
+        if (lastMatch) {
+          const endPoint = { x: parseFloat(lastMatch[1]), y: parseFloat(lastMatch[2]) }
+          return [startPoint, endPoint]
+        }
+
+        return [startPoint]
+      }
+
+      default:
+        return []
+    }
+  }
+
+  /**
+   * Get bounds for a specific marker at a point
+   * @param {string} markerUrl - The marker URL (e.g., "url(#arrowhead)")
+   * @param {Object} point - The {x, y} point where marker is positioned
+   * @param {boolean} debug - Enable debug logging
+   * @returns {Object|null} Marker bounds or null if not found
+   */
+  function getMarkerBounds (markerUrl, point, debug = false) {
+    // Extract marker ID from url(#id) format
+    const match = markerUrl.match(/url\(#([^)]+)\)/)
+    if (!match) return null
+
+    const markerId = match[1]
+    const markerElement = document.getElementById(markerId)
+
+    if (!markerElement || markerElement.tagName.toLowerCase() !== 'marker') {
+      if (debug) {
+        console.log(`  Marker not found: ${markerId}`)
+      }
+      return null
+    }
+
+    // Get marker dimensions
+    const markerWidth = parseFloat(markerElement.getAttribute('markerWidth') || '3')
+    const markerHeight = parseFloat(markerElement.getAttribute('markerHeight') || '3')
+    const refX = parseFloat(markerElement.getAttribute('refX') || '0')
+    const refY = parseFloat(markerElement.getAttribute('refY') || '0')
+
+    // Calculate marker bounds relative to the point
+    // Note: This is a simplified calculation - actual marker positioning
+    // involves orientation and scaling that we're approximating
+    const markerBounds = {
+      x: point.x - refX,
+      y: point.y - refY,
+      width: markerWidth,
+      height: markerHeight
+    }
+
+    if (debug) {
+      console.log(`  Marker ${markerId} at (${point.x},${point.y}): bounds=(${markerBounds.x},${markerBounds.y},${markerBounds.width},${markerBounds.height})`)
+    }
+
+    return markerBounds
   }
 
   // Public API

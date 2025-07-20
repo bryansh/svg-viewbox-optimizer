@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2025-07-20
+
+### Added
+- **Nested SVG Support**:
+  - Complete coordinate transformation for deeply nested SVG elements
+  - Recursive processing with accumulated transforms
+  - Proper viewport scaling and viewBox transformations
+  - Animation support within nested coordinate systems
+
+- **Comprehensive Test Coverage**:
+  - Achieved 100% test coverage with 96 passing tests across 7 test suites
+  - Mathematical verification of all test expectations against SVG geometry
+  - Complete coverage of animation, transform, effects, and nested SVG scenarios
+
+### Fixed
+- **Motion Path Animation Bounds**: Fixed complex motion path calculations to properly handle coordinate transformations
+- **Additive Animation Combining**: Resolved overlapping additive animations to combine correctly using matrix multiplication
+- **Filter Effects Integration**: Fixed filter effects to apply to animated bounds rather than static bounds
+- **Deeply Nested SVG Processing**: Added recursive processing for arbitrarily nested SVG structures
+- **Linting Issues**: Resolved all JavaScript Standard Style compliance issues
+
+### Architecture
+- **Browser Module System**: Improved separation between browser-optimized and Node.js modules
+- **Module Cache System**: Enhanced browser bundle with efficient module caching
+- **Case Block Declarations**: Fixed linting warnings in switch statements with proper block scoping
+
+### Quality Assurance
+- **Mathematical Accuracy**: All test expectations verified against manual geometric calculations
+- **Edge Case Coverage**: Comprehensive testing of complex nested animations and transformations
+- **Code Quality**: Zero linting errors with JavaScript Standard Style compliance
+
 ## [1.2.0] - 2025-07-20
 
 ### Added

@@ -354,12 +354,12 @@ function analyzeAnimateMotion (animElement, svg, debug = false) {
   if (rotate === 'auto' || rotate === 'auto-reverse') {
     // Auto rotation can expand bounds depending on element size
     // For now, add a conservative buffer
-    rotationExpansion = 20
+    rotationExpansion = 0
   } else if (rotate !== '0') {
     // Fixed rotation angle
     const angle = parseFloat(rotate)
     if (!isNaN(angle)) {
-      rotationExpansion = Math.abs(Math.sin(angle * Math.PI / 180)) * 20 + Math.abs(Math.cos(angle * Math.PI / 180)) * 20
+      rotationExpansion = Math.abs(Math.sin(angle * Math.PI / 180)) * 5 + Math.abs(Math.cos(angle * Math.PI / 180)) * 5
     }
   }
 

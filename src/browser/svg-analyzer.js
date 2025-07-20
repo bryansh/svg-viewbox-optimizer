@@ -106,7 +106,8 @@ window.SVGAnalyzer = (function () {
         })
       } else {
         // Process direct symbol reference
-        const bounds = window.BoundsCalculator.getElementBounds(referencedSymbol, debug)
+        // Get bounds from the use element itself, not the symbol
+        const bounds = window.BoundsCalculator.getElementBounds(useEl, debug)
         if (bounds.width === 0 && bounds.height === 0) return
 
         updateGlobalBounds(bounds)
@@ -116,6 +117,9 @@ window.SVGAnalyzer = (function () {
         const animations = analyzeElementAnimations(useEl, svg, debug)
         if (animations.length > 0) {
           animationCount += animations.length
+
+          // Expand bounds to include animation extremes
+          expandBoundsForAnimations(animations, bounds, debug)
         }
 
         elements.push({
@@ -151,33 +155,74 @@ window.SVGAnalyzer = (function () {
 
       const bounds = window.BoundsCalculator.getElementBounds(element, debug)
 
-      // Skip elements with zero bounds unless they have animations
+      // Skip elements with zero dimensions unless they have animations
       const hasAnimations = element.querySelector('animateTransform, animate, animateMotion') !== null
-      if (bounds.width === 0 && bounds.height === 0 && !hasAnimations) {
+      if ((bounds.width === 0 || bounds.height === 0) && !hasAnimations) {
         if (debug) {
-          console.log(`  Skipping ${tagName} with zero bounds and no animations`)
+          console.log(`  Skipping ${tagName} with zero dimensions and no animations`)
         }
         return
       }
 
-      updateGlobalBounds(bounds)
-      elementCount++
+      // Apply transforms to bounds
+      const transformMatrix = window.calculateCumulativeTransform ? window.calculateCumulativeTransform(element, svg) : null
+      const transformedBounds = transformMatrix ? transformMatrix.transformBounds(bounds) : bounds
 
-      // Analyze animations
-      const animations = analyzeElementAnimations(element, svg, debug)
-      if (animations.length > 0) {
-        animationCount += animations.length
+      if (debug && transformMatrix && !transformMatrix.isIdentity()) {
+        console.log(`  Applied transform matrix: bounds (${bounds.x},${bounds.y},${bounds.width},${bounds.height}) -> (${transformedBounds.x.toFixed(2)},${transformedBounds.y.toFixed(2)},${transformedBounds.width.toFixed(2)},${transformedBounds.height.toFixed(2)})`)
       }
 
-      // Analyze effects
-      const effects = window.analyzeEffects ? window.analyzeEffects(element, debug) : { hasAnyEffects: false }
+      // Analyze animations first to see if element moves
+      const animations = analyzeElementAnimations(element, svg, debug)
+      const hasMotionAnimation = animations.some(anim => anim.type === 'animateMotion')
+
+      // For elements with motion animation, don't include static bounds
+      if (!hasMotionAnimation) {
+        updateGlobalBounds(transformedBounds)
+      }
+      elementCount++
+
+      // Analyze effects first to determine if we need to apply them to animated bounds
+      const effects = window.analyzeElementEffects ? window.analyzeElementEffects(element, svg, debug) : { hasAnyEffects: false }
       if (effects.hasAnyEffects) {
         effectsCount++
       }
 
+      if (animations.length > 0) {
+        animationCount += animations.length
+
+        // Combine overlapping animations (handles additive animations properly)
+        if (typeof window.combineOverlappingAnimations === 'function') {
+          const animatedBounds = window.combineOverlappingAnimations(animations, bounds, debug)
+          // Apply transform to the animated bounds if needed
+          const finalAnimatedBounds = transformMatrix ? transformMatrix.transformBounds(animatedBounds) : animatedBounds
+
+          // If element has effects, apply them to the animated bounds
+          if (effects.hasAnyEffects) {
+            const effectsBounds = expandBoundsForEffects(effects, finalAnimatedBounds, debug)
+            updateGlobalBounds(effectsBounds)
+          } else {
+            updateGlobalBounds(finalAnimatedBounds)
+          }
+        } else {
+          // Fallback to basic expansion
+          expandBoundsForAnimations(animations, bounds, debug)
+
+          // Apply effects to animated bounds if present
+          if (effects.hasAnyEffects) {
+            const effectsBounds = expandBoundsForEffects(effects, transformedBounds, debug)
+            updateGlobalBounds(effectsBounds)
+          }
+        }
+      } else if (effects.hasAnyEffects) {
+        // No animations, just apply effects to transformed bounds
+        const effectsBounds = expandBoundsForEffects(effects, transformedBounds, debug)
+        updateGlobalBounds(effectsBounds)
+      }
+
       elements.push({
         type: tagName,
-        bounds,
+        bounds: transformedBounds,
         animations,
         hasEffects: effects.hasAnyEffects
       })
@@ -189,6 +234,138 @@ window.SVGAnalyzer = (function () {
       globalMinY = Math.min(globalMinY, bounds.y)
       globalMaxX = Math.max(globalMaxX, bounds.x + bounds.width)
       globalMaxY = Math.max(globalMaxY, bounds.y + bounds.height)
+    }
+
+    function expandBoundsForEffects (effects, baseBounds, debug) {
+      if (debug) {
+        console.log('  Expanding bounds for effects')
+      }
+
+      let expandedBounds = { ...baseBounds }
+
+      // Handle filter effects
+      if (effects.filter && effects.filter.hasFilter) {
+        const filterExpansion = effects.filter.expansion
+
+        if (filterExpansion.isPixelBased) {
+          // Pixel-based expansion (from blur, offset, etc.)
+          expandedBounds = {
+            x: baseBounds.x - filterExpansion.x,
+            y: baseBounds.y - filterExpansion.y,
+            width: baseBounds.width + filterExpansion.width,
+            height: baseBounds.height + filterExpansion.height
+          }
+        } else {
+          // Percentage-based expansion (from filter region)
+          const widthExpansion = baseBounds.width * filterExpansion.width
+          const heightExpansion = baseBounds.height * filterExpansion.height
+          const xExpansion = baseBounds.width * filterExpansion.x
+          const yExpansion = baseBounds.height * filterExpansion.y
+
+          expandedBounds = {
+            x: baseBounds.x - xExpansion,
+            y: baseBounds.y - yExpansion,
+            width: baseBounds.width + widthExpansion,
+            height: baseBounds.height + heightExpansion
+          }
+        }
+
+        if (debug) {
+          console.log(`    Filter expanded bounds: x=${expandedBounds.x.toFixed(2)}, y=${expandedBounds.y.toFixed(2)}, w=${expandedBounds.width.toFixed(2)}, h=${expandedBounds.height.toFixed(2)}`)
+        }
+      }
+
+      // For mask and clipPath effects, we conservatively preserve element bounds
+      // since they don't expand the visual area, they just hide parts of it
+
+      return expandedBounds
+    }
+
+    function expandBoundsForAnimations (animations, baseBounds, debug) {
+      if (debug) {
+        console.log(`  Expanding bounds for ${animations.length} animations`)
+      }
+
+      animations.forEach(animation => {
+        if (animation.type === 'animateTransform' && animation.transforms) {
+          // Process each transform in the animation
+          animation.transforms.forEach(transform => {
+            const matrix = transform.matrix
+            if (matrix && typeof matrix.transformBounds === 'function') {
+              const animatedBounds = matrix.transformBounds(baseBounds)
+
+              if (debug) {
+                console.log(`    Transform animated bounds: x=${animatedBounds.x.toFixed(2)}, y=${animatedBounds.y.toFixed(2)}, w=${animatedBounds.width.toFixed(2)}, h=${animatedBounds.height.toFixed(2)}`)
+              }
+
+              updateGlobalBounds(animatedBounds)
+            }
+          })
+        } else if (animation.type === 'animate' && animation.values) {
+          // Process attribute animations
+          animation.values.forEach(valueFrame => {
+            let adjustedBounds = { ...baseBounds }
+
+            // Handle different attribute types
+            switch (animation.attributeName) {
+              case 'x':
+                adjustedBounds.x = valueFrame.value
+                break
+              case 'y':
+                adjustedBounds.y = valueFrame.value
+                break
+              case 'width':
+                adjustedBounds.width = valueFrame.value
+                break
+              case 'height':
+                adjustedBounds.height = valueFrame.value
+                break
+              case 'd':
+                // Path morphing - use normalized bounds if available
+                if (valueFrame.normalizedValue && valueFrame.normalizedValue.bounds) {
+                  const pathBounds = valueFrame.normalizedValue.bounds
+                  adjustedBounds = {
+                    x: pathBounds.minX,
+                    y: pathBounds.minY,
+                    width: pathBounds.maxX - pathBounds.minX,
+                    height: pathBounds.maxY - pathBounds.minY
+                  }
+                }
+                break
+            }
+
+            if (debug) {
+              console.log(`    Attribute animated bounds: x=${adjustedBounds.x.toFixed(2)}, y=${adjustedBounds.y.toFixed(2)}, w=${adjustedBounds.width.toFixed(2)}, h=${adjustedBounds.height.toFixed(2)}`)
+            }
+
+            updateGlobalBounds(adjustedBounds)
+          })
+        } else if (animation.type === 'animateMotion' && animation.motionBounds) {
+          // Process motion path animations
+          const motionBounds = animation.expandedBounds || animation.motionBounds
+
+          // For animateMotion, the element moves along the path
+          // The motion bounds represent where the element's reference point travels
+          // We need to expand these bounds by the element's size to get the final visual bounds
+
+          // Calculate the final bounds by positioning the element at each motion point
+          // The motion bounds represent where the element's reference point travels
+          const expandedBounds = {
+            x: motionBounds.minX,
+            y: motionBounds.minY,
+            width: (motionBounds.maxX - motionBounds.minX) + baseBounds.width,
+            height: (motionBounds.maxY - motionBounds.minY) + baseBounds.height
+          }
+
+          if (debug) {
+            console.log(`    Motion path bounds: (${motionBounds.minX},${motionBounds.minY}) to (${motionBounds.maxX},${motionBounds.maxY})`)
+            console.log(`    Element size: ${baseBounds.width}x${baseBounds.height}`)
+            console.log(`    Motion animated bounds: x=${expandedBounds.x.toFixed(2)}, y=${expandedBounds.y.toFixed(2)}, w=${expandedBounds.width.toFixed(2)}, h=${expandedBounds.height.toFixed(2)}`)
+          }
+
+          updateGlobalBounds(expandedBounds)
+        }
+      })
     }
 
     function isContainerSymbol (symbolElement) {
@@ -206,22 +383,165 @@ window.SVGAnalyzer = (function () {
       const animations = []
       const animationElements = element.querySelectorAll('animateTransform, animate, animateMotion')
       animationElements.forEach(anim => {
-        animations.push({
-          type: anim.tagName.toLowerCase(),
-          element: anim
-        })
+        if (anim.parentElement === element) {
+          animations.push({
+            type: anim.tagName.toLowerCase(),
+            element: anim
+          })
+        }
       })
       return animations
     }
 
-    function processNestedSVG (nestedSvg, rootSvg, debug) {
-      // This would handle nested SVG processing
-      // For now, just get basic bounds
-      const bounds = window.BoundsCalculator.getElementBounds(nestedSvg, debug)
-      if (bounds.width > 0 && bounds.height > 0) {
-        updateGlobalBounds(bounds)
-        elementCount++
+    function processNestedSVGWithTransform (nestedSvg, rootSvg, parentTransform, debug) {
+      // Calculate coordinate transformation for this nested SVG level
+      const nestedTransform = window.BoundsCalculator.calculateNestedSVGTransform(nestedSvg, debug)
+
+      // Combine with parent transform (accumulated transformation)
+      const combinedTransform = {
+        translateX: parentTransform.translateX + nestedTransform.translateX * parentTransform.scaleX,
+        translateY: parentTransform.translateY + nestedTransform.translateY * parentTransform.scaleY,
+        scaleX: parentTransform.scaleX * nestedTransform.scaleX,
+        scaleY: parentTransform.scaleY * nestedTransform.scaleY
       }
+
+      if (debug) {
+        console.log(`  Deeply nested SVG combined transform: translateX=${combinedTransform.translateX}, translateY=${combinedTransform.translateY}, scaleX=${combinedTransform.scaleX}, scaleY=${combinedTransform.scaleY}`)
+      }
+
+      // Process all child elements within this deeply nested SVG
+      const childElements = nestedSvg.querySelectorAll('rect, circle, ellipse, line, polyline, polygon, path, text, image, g, foreignObject, svg')
+
+      childElements.forEach(childElement => {
+        if (!window.VisibilityChecker.shouldIncludeElement(childElement, nestedSvg, debug)) return
+
+        const tagName = childElement.tagName.toLowerCase()
+
+        // Handle even deeper nesting recursively
+        if (tagName === 'svg') {
+          if (debug) {
+            console.log('  Processing even deeper nested SVG element')
+          }
+          processNestedSVGWithTransform(childElement, rootSvg, combinedTransform, debug)
+          return
+        }
+
+        // Get bounds of the child element in its local coordinate system
+        const localBounds = window.BoundsCalculator.getElementBounds(childElement, debug)
+
+        if (localBounds.width === 0 && localBounds.height === 0) return
+
+        // Apply accumulated nested SVG coordinate transformation
+        const transformedBounds = window.BoundsCalculator.applyNestedSVGTransform(localBounds, combinedTransform, debug)
+
+        updateGlobalBounds(transformedBounds)
+        elementCount++
+
+        // Analyze animations (calculate in local space, then transform)
+        const animations = analyzeElementAnimations(childElement, nestedSvg, debug)
+        if (animations.length > 0) {
+          animationCount += animations.length
+
+          // Calculate animated bounds in local coordinate space first
+          if (typeof window.combineOverlappingAnimations === 'function') {
+            const localAnimatedBounds = window.combineOverlappingAnimations(animations, localBounds, debug)
+            // Then apply the combined transform to the animated bounds
+            const finalAnimatedBounds = window.BoundsCalculator.applyNestedSVGTransform(localAnimatedBounds, combinedTransform, debug)
+            updateGlobalBounds(finalAnimatedBounds)
+          } else {
+            // Fallback: apply transform to animated bounds
+            expandBoundsForAnimations(animations, transformedBounds, debug)
+          }
+        }
+
+        // Analyze effects
+        const effects = window.analyzeElementEffects ? window.analyzeElementEffects(childElement, nestedSvg, debug) : { hasAnyEffects: false }
+        if (effects.hasAnyEffects) {
+          effectsCount++
+
+          const effectsBounds = expandBoundsForEffects(effects, transformedBounds, debug)
+          updateGlobalBounds(effectsBounds)
+        }
+
+        elements.push({
+          type: tagName,
+          bounds: transformedBounds,
+          animations,
+          hasEffects: effects.hasAnyEffects,
+          nested: true,
+          deeplyNested: true
+        })
+      })
+    }
+
+    function processNestedSVG (nestedSvg, rootSvg, debug) {
+      // Calculate coordinate transformation for this nested SVG
+      const transform = window.BoundsCalculator.calculateNestedSVGTransform(nestedSvg, debug)
+
+      if (debug) {
+        console.log(`  Nested SVG transform: translateX=${transform.translateX}, translateY=${transform.translateY}, scaleX=${transform.scaleX}, scaleY=${transform.scaleY}`)
+      }
+
+      // Process all child elements within the nested SVG, including nested SVGs
+      const childElements = nestedSvg.querySelectorAll('rect, circle, ellipse, line, polyline, polygon, path, text, image, g, foreignObject, svg')
+
+      childElements.forEach(childElement => {
+        if (!window.VisibilityChecker.shouldIncludeElement(childElement, nestedSvg, debug)) return
+
+        const tagName = childElement.tagName.toLowerCase()
+
+        // Handle nested SVG elements recursively
+        if (tagName === 'svg') {
+          if (debug) {
+            console.log('  Processing deeply nested SVG element')
+          }
+          // Recursively process the deeply nested SVG with accumulated transform
+          processNestedSVGWithTransform(childElement, rootSvg, transform, debug)
+          return
+        }
+
+        // Get bounds of the child element in its local coordinate system
+        const localBounds = window.BoundsCalculator.getElementBounds(childElement, debug)
+
+        if (localBounds.width === 0 && localBounds.height === 0) return
+
+        // Apply nested SVG coordinate transformation
+        const transformedBounds = window.BoundsCalculator.applyNestedSVGTransform(localBounds, transform, debug)
+
+        updateGlobalBounds(transformedBounds)
+        elementCount++
+
+        // Analyze animations (calculate in local space, then transform)
+        const animations = analyzeElementAnimations(childElement, nestedSvg, debug)
+        if (animations.length > 0) {
+          animationCount += animations.length
+
+          // Calculate animated bounds in local coordinate space first
+          if (typeof window.combineOverlappingAnimations === 'function') {
+            const localAnimatedBounds = window.combineOverlappingAnimations(animations, localBounds, debug)
+            // Then apply the nested SVG transform to the animated bounds
+            const finalAnimatedBounds = window.BoundsCalculator.applyNestedSVGTransform(localAnimatedBounds, transform, debug)
+            updateGlobalBounds(finalAnimatedBounds)
+          } else {
+            // Fallback: expand bounds using transformed bounds as base
+            expandBoundsForAnimations(animations, transformedBounds, debug)
+          }
+        }
+
+        // Analyze effects
+        const effects = window.analyzeElementEffects ? window.analyzeElementEffects(childElement, nestedSvg, debug) : { hasAnyEffects: false }
+        if (effects.hasAnyEffects) {
+          effectsCount++
+        }
+
+        elements.push({
+          type: tagName,
+          bounds: transformedBounds,
+          animations,
+          hasEffects: effects.hasAnyEffects,
+          nested: true
+        })
+      })
     }
 
     // Final bounds calculation
