@@ -1,6 +1,7 @@
 const fs = require('fs')
 const puppeteer = require('puppeteer')
 const { Matrix2D, calculateCumulativeTransform } = require('./transform-parser')
+const { BrowserBundle } = require('./src/browser-bundle')
 
 async function instantiateBrowser () {
   let browser
@@ -28,66 +29,20 @@ async function calculateOptimization (inputFile, options = {}) {
 
     const page = await browser.newPage()
 
-    // Inject our enhanced animation analysis modules into browser context
-    const animationAnalyzerCode = fs.readFileSync('./animation-analyzer.js', 'utf8')
-      .replace(/const \{ Matrix2D \} = require\('.*'\)/, '') // Remove Node.js require
-      .replace(/const \{ calculatePathBounds, calculateMotionValuesBounds \} = require\('.*'\)/, '') // Remove path parser require
-      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
-
-    // Inject SVG path parser for browser context
-    const pathParserCode = fs.readFileSync('./svg-path-parser.js', 'utf8')
-      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
-
-    // Inject animation combiner for browser context
-    const animationCombinerCode = fs.readFileSync('./animation-combiner.js', 'utf8')
-      .replace(/const \{ Matrix2D \} = require\('.*'\)/, '') // Remove Node.js require
-      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
-
-    // Inject effects analyzer for browser context
-    const effectsAnalyzerCode = fs.readFileSync('./effects-analyzer.js', 'utf8')
-      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
-
-    // Inject transform parser for enhanced CSS transform support
-    const transformParserCode = fs.readFileSync('./transform-parser.js', 'utf8')
-      .replace(/module\.exports = \{[^}]*\}/, '') // Remove module.exports
-
     // Capture console output
     if (options.debug) {
       page.on('console', msg => console.log('Browser console:', msg.text()))
     }
 
-    // Create HTML page with enhanced animation analysis
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <script>
-          // Enhanced transform parser with CSS transform support (browser-compatible)
-          ${transformParserCode}
-          
-          // SVG path parser functions (browser-compatible)
-          ${pathParserCode}
-          
-          // Animation combiner functions (browser-compatible)
-          ${animationCombinerCode}
-          
-          // Effects analyzer functions (browser-compatible)
-          ${effectsAnalyzerCode}
-          
-          // Enhanced animation analysis functions (browser-compatible)
-          ${animationAnalyzerCode}
-        </script>
-      </head>
-      <body>
-        ${svgContent}
-      </body>
-      </html>
-    `
+    // Use browser bundle builder to create clean HTML with all modules
+    const browserBundle = new BrowserBundle()
+    const html = await browserBundle.buildHTML(svgContent)
 
     await page.setContent(html)
 
     // Calculate bounds using the new modular architecture
     const bounds = await page.evaluate((debugMode) => {
+      /* global getComputedStyle, SVGElement */
       const debug = debugMode
       const svg = document.querySelector('svg')
 
@@ -376,54 +331,53 @@ async function calculateOptimization (inputFile, options = {}) {
           }
           parent = parent.parentElement
         }
-        
+
         // Check if element is visible
         if (!isElementVisible(element)) {
           return false
         }
-        
+
         return true
       }
-      
+
       function isElementVisible (element) {
         // First check element attributes (fastest check)
         if (element.getAttribute('display') === 'none' ||
             element.getAttribute('visibility') === 'hidden') {
           return false
         }
-        
+
         // Check opacity attribute
         const opacityAttr = element.getAttribute('opacity')
         if (opacityAttr === '0' || opacityAttr === '0.0') {
           return false
         }
-        
+
         // Use getComputedStyle for comprehensive style checking
         try {
           const computed = getComputedStyle(element)
-          
+
           // Check computed display
           if (computed.display === 'none') {
             return false
           }
-          
+
           // Check computed visibility
           if (computed.visibility === 'hidden') {
             return false
           }
-          
+
           // Check computed opacity
           const opacity = parseFloat(computed.opacity)
           if (opacity === 0) {
             return false
           }
-          
+
           // Additional check: offsetParent for display:none detection
           // Note: offsetParent is null for SVG elements, fixed positioned elements
           // Only use this check for HTML elements
-          const tagName = element.tagName.toLowerCase()
           const isSVGElement = element instanceof SVGElement || element.namespaceURI === 'http://www.w3.org/2000/svg'
-          
+
           if (!isSVGElement && !element.offsetParent && computed.position !== 'fixed') {
             return false
           }
@@ -432,7 +386,7 @@ async function calculateOptimization (inputFile, options = {}) {
           if (debug) {
             console.log('getComputedStyle failed for element:', e)
           }
-          
+
           // Check inline styles as fallback
           if (element.style.display === 'none' ||
               element.style.visibility === 'hidden' ||
@@ -440,22 +394,22 @@ async function calculateOptimization (inputFile, options = {}) {
             return false
           }
         }
-        
+
         // Check if any parent is hidden (inheritance for display and visibility)
-        parent = element.parentElement
+        let parent = element.parentElement
         while (parent && parent !== svg) {
           // Check parent attributes
           if (parent.getAttribute('display') === 'none' ||
               parent.getAttribute('visibility') === 'hidden') {
             return false
           }
-          
+
           // Check parent opacity (0 opacity hides children)
           const parentOpacity = parent.getAttribute('opacity')
           if (parentOpacity === '0' || parentOpacity === '0.0') {
             return false
           }
-          
+
           // Check parent computed styles
           try {
             const parentComputed = getComputedStyle(parent)
@@ -472,10 +426,10 @@ async function calculateOptimization (inputFile, options = {}) {
               return false
             }
           }
-          
+
           parent = parent.parentElement
         }
-        
+
         return true
       }
 
