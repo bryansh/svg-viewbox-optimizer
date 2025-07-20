@@ -1,6 +1,6 @@
 const fs = require('fs')
 const puppeteer = require('puppeteer')
-const { Matrix2D, calculateCumulativeTransform } = require('./transform-parser')
+const { Matrix2D, calculateCumulativeTransform } = require('./src/lib/transform-parser')
 const { BrowserBundle } = require('./src/browser-bundle')
 
 async function instantiateBrowser () {

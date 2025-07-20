@@ -80,7 +80,7 @@ class BrowserBundle {
 
   /**
    * Load and process a Node.js module for browser compatibility
-   * @param {string} filename - Module filename in project root
+   * @param {string} filename - Module filename in src/lib/
    * @returns {Promise<string>} Processed module code ready for browser
    */
   async loadAndProcessNodeModule (filename) {
@@ -90,7 +90,7 @@ class BrowserBundle {
       return this.moduleCache.get(cacheKey)
     }
 
-    const modulePath = path.join(__dirname, '..', filename)
+    const modulePath = path.join(__dirname, 'lib', filename)
     const moduleCode = await fs.readFile(modulePath, 'utf8')
 
     // Process Node.js module for browser compatibility

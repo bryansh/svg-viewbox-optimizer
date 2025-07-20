@@ -3,7 +3,7 @@ const {
   calculatePathBounds,
   calculateMotionValuesBounds,
   parseMotionValues
-} = require('../svg-path-parser')
+} = require('../src/lib/svg-path-parser')
 
 describe('SVG Path Parser', () => {
   describe('Path parsing', () => {
