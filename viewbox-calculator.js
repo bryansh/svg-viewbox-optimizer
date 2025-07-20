@@ -1,5 +1,6 @@
 const fs = require('fs')
 const puppeteer = require('puppeteer')
+const { Matrix2D, calculateCumulativeTransform } = require('./transform-parser')
 
 async function instantiateBrowser () {
   let browser
@@ -215,19 +216,21 @@ async function calculateOptimization (inputFile, options = {}) {
                   const matrix = transform.matrix
                   if (matrix && (matrix.e !== 0 || matrix.f !== 0)) {
                     // Scale translation values by nested SVG scale factors
-                    const scaledMatrix = (typeof Matrix2D !== 'undefined') ? new Matrix2D(
-                      matrix.a, matrix.b, matrix.c, matrix.d,
-                      matrix.e * combinedTransform.scaleX, // Scale translateX
-                      matrix.f * combinedTransform.scaleY // Scale translateY
-                    ) : {
-                      a: matrix.a,
-                      b: matrix.b,
-                      c: matrix.c,
-                      d: matrix.d,
-                      e: matrix.e * combinedTransform.scaleX,
-                      f: matrix.f * combinedTransform.scaleY,
-                      transformBounds: matrix.transformBounds
-                    }
+                    const scaledMatrix = (typeof Matrix2D !== 'undefined')
+                      ? new Matrix2D(
+                        matrix.a, matrix.b, matrix.c, matrix.d,
+                        matrix.e * combinedTransform.scaleX, // Scale translateX
+                        matrix.f * combinedTransform.scaleY // Scale translateY
+                      )
+                      : {
+                          a: matrix.a,
+                          b: matrix.b,
+                          c: matrix.c,
+                          d: matrix.d,
+                          e: matrix.e * combinedTransform.scaleX,
+                          f: matrix.f * combinedTransform.scaleY,
+                          transformBounds: matrix.transformBounds
+                        }
                     return { ...transform, matrix: scaledMatrix }
                   }
                   return transform
