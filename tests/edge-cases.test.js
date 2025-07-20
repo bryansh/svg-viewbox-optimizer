@@ -169,6 +169,130 @@ describe('Edge Cases and Error Handling', () => {
     })
   })
 
+  describe('Hidden elements', () => {
+    it('should exclude elements with display="none"', async () => {
+      const hiddenInput = path.join(fixturesDir, 'test-hidden-elements.svg')
+      const result = await calculateOptimization(hiddenInput, { buffer: 10 })
+
+      // Should only find the visible blue rectangle
+      expect(result.elements.count).toBe(1)
+      expect(result.newViewBox.x).toBe(190)
+      expect(result.newViewBox.y).toBe(190)
+      expect(result.newViewBox.width).toBe(120)
+      expect(result.newViewBox.height).toBe(120)
+    })
+
+    it('should exclude elements with visibility="hidden"', async () => {
+      const svg = `<svg viewBox="0 0 300 300">
+        <rect x="50" y="50" width="100" height="100" fill="blue" />
+        <rect x="200" y="200" width="50" height="50" fill="red" visibility="hidden" />
+      </svg>`
+      const tempFile = path.join(__dirname, 'visibility-hidden.svg')
+      fs.writeFileSync(tempFile, svg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+        expect(result.elements.count).toBe(1)
+        // Should only include the visible rectangle at 50,50
+        expect(result.newViewBox.x).toBe(40)
+        expect(result.newViewBox.y).toBe(40)
+        expect(result.newViewBox.width).toBe(120)
+        expect(result.newViewBox.height).toBe(120)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
+
+    it('should exclude elements with opacity="0"', async () => {
+      const svg = `<svg viewBox="0 0 300 300">
+        <circle cx="150" cy="150" r="50" fill="green" />
+        <rect x="200" y="200" width="80" height="80" fill="red" opacity="0" />
+      </svg>`
+      const tempFile = path.join(__dirname, 'opacity-zero.svg')
+      fs.writeFileSync(tempFile, svg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+        expect(result.elements.count).toBe(1)
+        // Should only include the visible circle centered at 150,150 with radius 50
+        expect(result.newViewBox.x).toBe(90)
+        expect(result.newViewBox.y).toBe(90)
+        expect(result.newViewBox.width).toBe(120)
+        expect(result.newViewBox.height).toBe(120)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
+
+    it('should exclude children of hidden parents', async () => {
+      const svg = `<svg viewBox="0 0 400 400">
+        <rect x="50" y="50" width="100" height="100" fill="blue" />
+        <g display="none">
+          <rect x="200" y="200" width="150" height="150" fill="red" />
+          <circle cx="300" cy="300" r="80" fill="green" />
+        </g>
+      </svg>`
+      const tempFile = path.join(__dirname, 'hidden-parent.svg')
+      fs.writeFileSync(tempFile, svg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+        expect(result.elements.count).toBe(1)
+        // Should only include the visible rectangle, not the hidden group's children
+        expect(result.newViewBox.x).toBe(40)
+        expect(result.newViewBox.y).toBe(40)
+        expect(result.newViewBox.width).toBe(120)
+        expect(result.newViewBox.height).toBe(120)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
+
+    it('should handle CSS style display and visibility', async () => {
+      const svg = `<svg viewBox="0 0 300 300">
+        <rect x="100" y="100" width="100" height="100" fill="blue" />
+        <rect x="50" y="50" width="50" height="50" fill="red" style="display: none" />
+        <rect x="200" y="200" width="50" height="50" fill="green" style="visibility: hidden; fill: green" />
+        <rect x="250" y="250" width="30" height="30" fill="yellow" style="opacity: 0; fill: yellow" />
+      </svg>`
+      const tempFile = path.join(__dirname, 'css-hidden.svg')
+      fs.writeFileSync(tempFile, svg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+        expect(result.elements.count).toBe(1)
+        // Should only include the visible blue rectangle
+        expect(result.newViewBox.x).toBe(90)
+        expect(result.newViewBox.y).toBe(90)
+        expect(result.newViewBox.width).toBe(120)
+        expect(result.newViewBox.height).toBe(120)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
+
+    it('should include elements with non-zero opacity', async () => {
+      const svg = `<svg viewBox="0 0 300 300">
+        <rect x="50" y="50" width="100" height="100" fill="blue" opacity="0.5" />
+        <circle cx="200" cy="200" r="50" fill="green" opacity="0.1" />
+      </svg>`
+      const tempFile = path.join(__dirname, 'partial-opacity.svg')
+      fs.writeFileSync(tempFile, svg)
+
+      try {
+        const result = await calculateOptimization(tempFile, { buffer: 10 })
+        expect(result.elements.count).toBe(2)
+        // Should include both elements (rectangle and circle)
+        expect(result.newViewBox.x).toBe(40)
+        expect(result.newViewBox.y).toBe(40)
+        expect(result.newViewBox.width).toBe(220)
+        expect(result.newViewBox.height).toBe(220)
+      } finally {
+        fs.unlinkSync(tempFile)
+      }
+    })
+  })
+
   describe('Animation edge cases', () => {
     it('should handle animation with malformed values', async () => {
       const malformedAnim = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">

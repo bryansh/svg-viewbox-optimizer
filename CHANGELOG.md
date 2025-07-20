@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2025-07-20
+
+### Added
+- **Hidden Element Handling**:
+  - Automatically excludes elements with `display="none"` from viewBox calculations
+  - Excludes elements with `visibility="hidden"` 
+  - Excludes elements with `opacity="0"`
+  - Supports CSS style-based hiding (inline styles and computed styles)
+  - Proper parent inheritance - children of hidden parents are excluded
+  - Uses browser's `getComputedStyle()` API for accurate CSS cascade handling
+
+- **Enhanced API**:
+  - Added `newViewBox` object with `x`, `y`, `width`, `height` properties for easier programmatic access
+  - Maintains backward compatibility with string-based `optimized.viewBox`
+
+### Tests
+- Added 6 comprehensive test cases for hidden element scenarios
+- Tests cover attribute-based hiding, CSS styles, and parent inheritance
+
 ## [1.1.0] - 2025-07-19
 
 ### Added

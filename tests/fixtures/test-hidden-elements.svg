@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Visible rectangle at center -->
+  <rect x="200" y="200" width="100" height="100" fill="blue" />
+  
+  <!-- Hidden elements that shouldn't affect viewBox -->
+  <rect x="50" y="50" width="50" height="50" fill="red" display="none" />
+  <rect x="400" y="400" width="50" height="50" fill="green" visibility="hidden" />
+  <rect x="100" y="400" width="50" height="50" fill="yellow" opacity="0" />
+  
+  <!-- Hidden via CSS style -->
+  <rect x="400" y="100" width="50" height="50" fill="purple" style="display: none" />
+  <rect x="50" y="300" width="50" height="50" fill="orange" style="visibility: hidden" />
+  
+  <!-- Hidden group -->
+  <g display="none">
+    <rect x="0" y="0" width="100" height="100" fill="cyan" />
+    <circle cx="450" cy="450" r="40" fill="magenta" />
+  </g>
+</svg>

@@ -90,6 +90,17 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 - **Groups** - g elements with nested content and transforms
 - **foreignObject** - HTML/XML content embedded in SVG
 - **use** - Symbol references with transform inheritance
+- **Nested SVG** - Proper coordinate system transformations
+
+### Hidden Element Handling
+
+The optimizer automatically excludes hidden elements from viewBox calculations:
+
+- **display="none"** - Elements removed from layout
+- **visibility="hidden"** - Invisible elements
+- **opacity="0"** - Fully transparent elements
+- **CSS styles** - Computed styles including cascaded rules
+- **Parent inheritance** - Children of hidden parents are excluded
 
 ### Supported Transform Types
 
@@ -155,6 +166,10 @@ async function optimizeSVG() {
   
   console.log(result.optimized.viewBox); // "43.54 138.08 441.66 340.82"
   console.log(result.savings.percentage); // 42.6
+  
+  // New viewBox object for easier programmatic access
+  console.log(result.newViewBox); 
+  // { x: 43.54, y: 138.08, width: 441.66, height: 340.82 }
 }
 ```
 

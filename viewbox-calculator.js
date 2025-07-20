@@ -376,6 +376,106 @@ async function calculateOptimization (inputFile, options = {}) {
           }
           parent = parent.parentElement
         }
+        
+        // Check if element is visible
+        if (!isElementVisible(element)) {
+          return false
+        }
+        
+        return true
+      }
+      
+      function isElementVisible (element) {
+        // First check element attributes (fastest check)
+        if (element.getAttribute('display') === 'none' ||
+            element.getAttribute('visibility') === 'hidden') {
+          return false
+        }
+        
+        // Check opacity attribute
+        const opacityAttr = element.getAttribute('opacity')
+        if (opacityAttr === '0' || opacityAttr === '0.0') {
+          return false
+        }
+        
+        // Use getComputedStyle for comprehensive style checking
+        try {
+          const computed = getComputedStyle(element)
+          
+          // Check computed display
+          if (computed.display === 'none') {
+            return false
+          }
+          
+          // Check computed visibility
+          if (computed.visibility === 'hidden') {
+            return false
+          }
+          
+          // Check computed opacity
+          const opacity = parseFloat(computed.opacity)
+          if (opacity === 0) {
+            return false
+          }
+          
+          // Additional check: offsetParent for display:none detection
+          // Note: offsetParent is null for SVG elements, fixed positioned elements
+          // Only use this check for HTML elements
+          const tagName = element.tagName.toLowerCase()
+          const isSVGElement = element instanceof SVGElement || element.namespaceURI === 'http://www.w3.org/2000/svg'
+          
+          if (!isSVGElement && !element.offsetParent && computed.position !== 'fixed') {
+            return false
+          }
+        } catch (e) {
+          // If getComputedStyle fails, fall back to attribute/inline style checks
+          if (debug) {
+            console.log('getComputedStyle failed for element:', e)
+          }
+          
+          // Check inline styles as fallback
+          if (element.style.display === 'none' ||
+              element.style.visibility === 'hidden' ||
+              element.style.opacity === '0') {
+            return false
+          }
+        }
+        
+        // Check if any parent is hidden (inheritance for display and visibility)
+        parent = element.parentElement
+        while (parent && parent !== svg) {
+          // Check parent attributes
+          if (parent.getAttribute('display') === 'none' ||
+              parent.getAttribute('visibility') === 'hidden') {
+            return false
+          }
+          
+          // Check parent opacity (0 opacity hides children)
+          const parentOpacity = parent.getAttribute('opacity')
+          if (parentOpacity === '0' || parentOpacity === '0.0') {
+            return false
+          }
+          
+          // Check parent computed styles
+          try {
+            const parentComputed = getComputedStyle(parent)
+            if (parentComputed.display === 'none' ||
+                parentComputed.visibility === 'hidden' ||
+                parseFloat(parentComputed.opacity) === 0) {
+              return false
+            }
+          } catch (e) {
+            // Fallback to inline styles
+            if (parent.style.display === 'none' ||
+                parent.style.visibility === 'hidden' ||
+                parent.style.opacity === '0') {
+              return false
+            }
+          }
+          
+          parent = parent.parentElement
+        }
+        
         return true
       }
 
@@ -837,6 +937,12 @@ async function calculateOptimization (inputFile, options = {}) {
         width: newWidth,
         height: newHeight,
         area: newWidth * newHeight
+      },
+      newViewBox: {
+        x: newMinX,
+        y: newMinY,
+        width: newWidth,
+        height: newHeight
       },
       content: {
         width: contentWidth,
