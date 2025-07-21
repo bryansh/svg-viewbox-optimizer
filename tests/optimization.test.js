@@ -378,6 +378,32 @@ describe('SVG Optimization', () => {
       // Animation chaining (anim1.end trigger) should work
       expect(result.content.width).toBeGreaterThan(100) // Includes chained animation bounds
     })
+
+    it('should handle chained symbol references', async () => {
+      const input = path.join(fixturesDir, 'test-symbol-chains.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Should detect all resolved elements from the chain
+      expect(result.elements.count).toBeGreaterThan(5) // Multiple elements resolved from chains
+      
+      // Should resolve and find actual content (not just empty bounds)
+      expect(result.content.width).toBeGreaterThan(200) // Should find real content with proper positioning
+      expect(result.content.height).toBeGreaterThan(200)
+      
+      // Should optimize from original 400x400  
+      expect(result.original.viewBox).toBe('0 0 400 400')
+      expect(result.savings.percentage).toBeGreaterThan(0)
+      
+      // Root-level use positioning should now be properly applied
+      // First use: <use href="#icon3" x="100" y="100" width="200" height="200"/>
+      // Should position content starting around x=100, y=100
+      expect(result.content.minX).toBeGreaterThan(50) // Should be positioned, not at origin
+      expect(result.content.minY).toBeGreaterThan(90) // Should be positioned, not at origin
+      
+      // Second use: <use href="#icon2" x="50" y="250" width="100" height="100"/>
+      // Should extend bounds to include this positioned content
+      expect(result.content.maxY).toBeGreaterThan(300) // Should include second use at y=250
+    })
   })
 
   describe('Real-world scenarios', () => {

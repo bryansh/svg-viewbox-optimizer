@@ -59,49 +59,56 @@ window.SVGAnalyzer = (function () {
       const referencedSymbol = svg.querySelector(href)
       if (!referencedSymbol) return
 
-      // Handle container symbols by processing their child use elements
+      // Handle container symbols by resolving the full chain
       if (isContainerSymbol(referencedSymbol)) {
         if (debug) {
-          console.log(`  Processing container symbol ${href} - expanding children`)
+          console.log(`  Processing container symbol ${href} - resolving chain`)
         }
 
         // Get the cumulative transform matrix for the container use element
         const containerMatrix = window.calculateCumulativeTransform ? window.calculateCumulativeTransform(useEl, svg) : null
+        
+        // Extract root-level use positioning attributes
+        const rootUseTransform = createRootUseTransform(useEl, referencedSymbol, debug)
 
-        // Process each child use element within the symbol
-        const childUseElements = referencedSymbol.querySelectorAll('use')
-        childUseElements.forEach(childUse => {
-          const childHref = childUse.getAttribute('xlink:href') || childUse.getAttribute('href')
-          if (!childHref || !childHref.startsWith('#')) return
-
-          const childSymbol = svg.querySelector(childHref)
-          if (!childSymbol) return
-
-          const bounds = window.BoundsCalculator.getElementBounds(childSymbol, debug)
+        // Recursively resolve the symbol chain
+        const resolvedElements = resolveSymbolChain(referencedSymbol, svg, containerMatrix, new Set(), debug)
+        
+        resolvedElements.forEach(resolved => {
+          const bounds = window.BoundsCalculator.getElementBounds(resolved.element, debug)
           if (bounds.width === 0 && bounds.height === 0) return
 
-          // Apply container transform if available
+          // Apply accumulated transform from symbol chain
           let finalBounds = bounds
-          if (containerMatrix && containerMatrix.transformBounds) {
-            finalBounds = containerMatrix.transformBounds(bounds)
+          if (resolved.transform && resolved.transform.transformBounds) {
+            finalBounds = resolved.transform.transformBounds(bounds)
+          }
+          
+          // Apply root-level use element positioning
+          if (rootUseTransform && rootUseTransform.transformBounds) {
+            finalBounds = rootUseTransform.transformBounds(finalBounds)
+            if (debug) {
+              console.log(`    Applied root use transform: (${bounds.x},${bounds.y}) ${bounds.width}x${bounds.height} -> (${finalBounds.x.toFixed(2)},${finalBounds.y.toFixed(2)}) ${finalBounds.width.toFixed(2)}x${finalBounds.height.toFixed(2)}`)
+            }
           }
 
           updateGlobalBounds(finalBounds)
           elementCount++
 
-          // Analyze animations on the container use element
+          // Analyze animations on the original use element
           const animations = analyzeElementAnimations(useEl, svg, debug)
           if (animations.length > 0) {
             animationCount += animations.length
-            // Process animation bounds would go here
+            expandBoundsForAnimations(animations, finalBounds, debug)
           }
 
           elements.push({
             type: 'use',
-            href: childHref,
+            href: href,
             bounds: finalBounds,
             animations,
-            hasEffects: false
+            hasEffects: false,
+            resolvedFrom: resolved.element.tagName.toLowerCase()
           })
         })
       } else {
@@ -371,6 +378,214 @@ window.SVGAnalyzer = (function () {
     function isContainerSymbol (symbolElement) {
       const nestedUseElements = symbolElement.querySelectorAll('use')
       return nestedUseElements.length > 0
+    }
+
+    /**
+     * Create transform matrix for root-level use element positioning
+     * Handles x, y, width, height attributes and viewBox scaling
+     */
+    function createRootUseTransform (useElement, referencedSymbol, debug) {
+      const x = parseFloat(useElement.getAttribute('x') || '0')
+      const y = parseFloat(useElement.getAttribute('y') || '0')
+      const width = parseFloat(useElement.getAttribute('width') || '0')
+      const height = parseFloat(useElement.getAttribute('height') || '0')
+      
+      // Get target viewBox for scaling calculations
+      const targetViewBox = referencedSymbol.getAttribute('viewBox')
+      
+      if (debug) {
+        console.log(`    Root use transform: x=${x}, y=${y}, width=${width}, height=${height}, targetViewBox=${targetViewBox}`)
+      }
+      
+      // If no positioning attributes, return null
+      if (x === 0 && y === 0 && width === 0 && height === 0) {
+        return null
+      }
+      
+      return {
+        type: 'root-use-transform',
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        targetViewBox: targetViewBox,
+        transformBounds: function(bounds) {
+          // Start with translation
+          let transformedBounds = {
+            x: bounds.x + this.x,
+            y: bounds.y + this.y,
+            width: bounds.width,
+            height: bounds.height
+          }
+          
+          // Apply scaling if width/height are specified and we have a viewBox
+          if (this.width > 0 && this.height > 0 && this.targetViewBox) {
+            const viewBox = this.targetViewBox.split(' ').map(Number)
+            if (viewBox.length >= 4) {
+              const vbWidth = viewBox[2]
+              const vbHeight = viewBox[3]
+              if (vbWidth > 0 && vbHeight > 0) {
+                const scaleX = this.width / vbWidth
+                const scaleY = this.height / vbHeight
+                
+                // Scale the bounds
+                transformedBounds.width *= scaleX
+                transformedBounds.height *= scaleY
+                
+                // Adjust position for scaling (scaling happens around the origin)
+                transformedBounds.x = this.x + (bounds.x * scaleX)
+                transformedBounds.y = this.y + (bounds.y * scaleY)
+              }
+            }
+          }
+          
+          return transformedBounds
+        }
+      }
+    }
+
+    /**
+     * Recursively resolve symbol chains and get all concrete elements
+     * @param {Element} symbolElement - The symbol to resolve
+     * @param {Element} svg - Root SVG element
+     * @param {Object} transform - Accumulated transform from parent uses
+     * @param {Set} visited - Set of visited symbol IDs to prevent infinite loops
+     * @param {boolean} debug - Enable debug logging
+     * @returns {Array} Array of resolved element bounds with transforms
+     */
+    function resolveSymbolChain (symbolElement, svg, transform, visited = new Set(), debug = false) {
+      const symbolId = symbolElement.getAttribute('id')
+      
+      // Prevent infinite recursion
+      if (visited.has(symbolId)) {
+        if (debug) {
+          console.log(`  Circular reference detected for symbol #${symbolId}`)
+        }
+        return []
+      }
+      
+      visited.add(symbolId)
+      const resolvedElements = []
+      
+      // Get all child elements in the symbol
+      const children = symbolElement.children
+      
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i]
+        const tagName = child.tagName.toLowerCase()
+        
+        if (tagName === 'use') {
+          // Resolve the referenced symbol
+          const href = child.getAttribute('xlink:href') || child.getAttribute('href')
+          if (!href || !href.startsWith('#')) continue
+          
+          const referencedElement = svg.querySelector(href)
+          if (!referencedElement) continue
+          
+          // Calculate transform for this use element (considering x, y, width, height attributes)
+          const x = parseFloat(child.getAttribute('x') || '0')
+          const y = parseFloat(child.getAttribute('y') || '0')
+          const width = parseFloat(child.getAttribute('width') || '0')
+          const height = parseFloat(child.getAttribute('height') || '0')
+          
+          // Create transform matrix for use element positioning
+          let useTransform = null
+          if (x !== 0 || y !== 0 || (width > 0 && height > 0)) {
+            // For now, create a simple transform object that can be handled later
+            useTransform = {
+              type: 'use-transform',
+              x: x,
+              y: y,
+              width: width,
+              height: height,
+              targetViewBox: referencedElement.getAttribute('viewBox'),
+              transformBounds: function(bounds) {
+                // Apply translation
+                let transformedBounds = {
+                  x: bounds.x + this.x,
+                  y: bounds.y + this.y,
+                  width: bounds.width,
+                  height: bounds.height
+                }
+                
+                // Apply scaling if width/height are specified
+                if (this.width > 0 && this.height > 0 && this.targetViewBox) {
+                  const viewBox = this.targetViewBox.split(' ').map(Number)
+                  const vbWidth = viewBox[2]
+                  const vbHeight = viewBox[3]
+                  if (vbWidth > 0 && vbHeight > 0) {
+                    const scaleX = this.width / vbWidth
+                    const scaleY = this.height / vbHeight
+                    transformedBounds.width *= scaleX
+                    transformedBounds.height *= scaleY
+                  }
+                }
+                
+                return transformedBounds
+              }
+            }
+          }
+          
+          // Combine with parent transform
+          const combinedTransform = combineTransforms(transform, useTransform)
+          
+          if (referencedElement.tagName.toLowerCase() === 'symbol') {
+            // Recursively resolve nested symbol
+            const nestedElements = resolveSymbolChain(
+              referencedElement, 
+              svg, 
+              combinedTransform, 
+              new Set(visited), 
+              debug
+            )
+            resolvedElements.push(...nestedElements)
+          } else {
+            // Regular element referenced by use
+            resolvedElements.push({
+              element: referencedElement,
+              transform: combinedTransform
+            })
+          }
+        } else if (tagName !== 'defs' && tagName !== 'style' && tagName !== 'script') {
+          // Direct visual element in the symbol
+          resolvedElements.push({
+            element: child,
+            transform: transform
+          })
+        }
+      }
+      
+      return resolvedElements
+    }
+    
+    /**
+     * Combine two transform matrices
+     */
+    function combineTransforms (t1, t2) {
+      if (!t1) return t2
+      if (!t2) return t1
+      
+      // If both have matrix multiply methods
+      if (t1.multiply && t2.multiply) {
+        return t1.multiply(t2)
+      }
+      
+      // Create a combined transform that applies both
+      return {
+        type: 'combined-transform',
+        t1: t1,
+        t2: t2,
+        transformBounds: function(bounds) {
+          let result = bounds
+          if (this.t1 && this.t1.transformBounds) {
+            result = this.t1.transformBounds(result)
+          }
+          if (this.t2 && this.t2.transformBounds) {
+            result = this.t2.transformBounds(result)
+          }
+          return result
+        }
+      }
     }
 
     function analyzeElementAnimations (element, svg, debug) {

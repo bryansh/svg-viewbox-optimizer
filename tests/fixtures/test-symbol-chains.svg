@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Base symbol - just a circle -->
+    <symbol id="part" viewBox="0 0 50 50">
+      <circle cx="25" cy="25" r="20" fill="red"/>
+    </symbol>
+    
+    <!-- First level symbol that uses the base part -->
+    <symbol id="icon" viewBox="0 0 100 100">
+      <rect x="10" y="10" width="80" height="80" fill="blue" opacity="0.3"/>
+      <use href="#part" x="25" y="25" width="50" height="50"/>
+    </symbol>
+    
+    <!-- Second level symbol that uses the first level -->
+    <symbol id="icon2" viewBox="0 0 150 150">
+      <rect x="5" y="5" width="140" height="140" fill="green" opacity="0.2"/>
+      <use href="#icon" x="25" y="25" width="100" height="100"/>
+    </symbol>
+    
+    <!-- Third level for deep chaining test -->
+    <symbol id="icon3" viewBox="0 0 200 200">
+      <rect x="0" y="0" width="200" height="200" fill="yellow" opacity="0.1"/>
+      <use href="#icon2" x="25" y="25" width="150" height="150"/>
+    </symbol>
+  </defs>
+  
+  <!-- Use the deeply chained symbol -->
+  <use href="#icon3" x="100" y="100" width="200" height="200"/>
+  
+  <!-- Also test multiple instances -->
+  <use href="#icon2" x="50" y="250" width="100" height="100"/>
+</svg>

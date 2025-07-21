@@ -91,7 +91,8 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 - **Images** - Embedded images with correct dimensions
 - **Groups** - g elements with nested content and transforms
 - **foreignObject** - HTML/XML content embedded in SVG
-- **use** - Symbol references with transform inheritance
+- **use** - Symbol references with transform inheritance and positioning
+- **Symbol chains** - Deeply nested symbol references with proper positioning
 - **Nested SVG** - Proper coordinate system transformations with recursive processing
 - **Markers** - Arrow heads and line decorations with accurate positioning
 
@@ -251,7 +252,7 @@ The project maintains **100% test coverage** with comprehensive test suites:
 
 ```bash
 npm test
-# 100 tests passing across 7 test suites
+# 101 tests passing across 7 test suites
 # ✅ CLI interface tests
 # ✅ Optimization algorithm tests  
 # ✅ Nested SVG coordinate transformation tests
@@ -261,6 +262,7 @@ npm test
 # ✅ Marker bounds calculation tests
 # ✅ Event-triggered animation tests
 # ✅ External stylesheet tests
+# ✅ Symbol chain positioning tests
 ```
 
 All test expectations have been mathematically verified against the actual SVG structures and geometric calculations.

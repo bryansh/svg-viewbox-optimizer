@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.3] - 2025-07-21
+
+### Fixed
+- **Root-Level Use Element Positioning**:
+  - Fixed limitation where root-level `<use>` element positioning attributes were ignored
+  - `x`, `y`, `width`, `height` attributes on use elements now properly position symbol content
+  - Improved accuracy for complex symbol chains with positioning transforms
+  - Enhanced viewBox scaling when use elements specify width/height dimensions
+
+### Technical Details
+- Added `createRootUseTransform()` function to extract and apply use element positioning
+- Enhanced symbol chain resolution to combine root-level transforms with symbol transforms
+- Proper viewBox scaling calculations when use elements resize symbol content
+- Updated test expectations to verify correct positioning behavior
+
 ## [1.2.2] - 2025-07-21
 
 ### Added
@@ -26,13 +41,20 @@ All notable changes to this project will be documented in this file.
 - External stylesheets converted to inline `<style>` blocks before browser analysis
 
 ### Testing
-- Added 4 comprehensive test cases for new features
-- Test coverage increased to 100 tests passing
-- Verified support for all standard DOM events and CSS loading scenarios
+- Updated existing symbol chain test to verify proper root-level use positioning
+- Enhanced test expectations to validate accurate bounds calculation
+- Test coverage maintained at 101 tests passing
+- Verified positioning accuracy for complex symbol hierarchies
 
 ## [1.2.1] - 2025-07-20
 
 ### Added
+- **Marker Support**:
+  - Full support for SVG markers (arrowheads, line decorations)
+  - Accurate bounds calculation for marker-start, marker-mid, and marker-end
+  - Marker positioning for line, polyline, polygon, and path elements
+  - Reference point calculation based on element geometry
+
 - **Nested SVG Support**:
   - Complete coordinate transformation for deeply nested SVG elements
   - Recursive processing with accumulated transforms
