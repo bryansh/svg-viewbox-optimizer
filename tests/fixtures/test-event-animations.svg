@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rectangle with click-triggered animation -->
+  <rect x="50" y="50" width="60" height="40" fill="blue">
+    <animateTransform
+      attributeName="transform"
+      type="translate"
+      values="0 0; 100 0; 0 0"
+      dur="2s"
+      begin="click"
+      fill="freeze"/>
+  </rect>
+  
+  <!-- Circle with mouseover-triggered animation -->
+  <circle cx="150" cy="150" r="30" fill="red">
+    <animate
+      attributeName="r"
+      values="30; 50; 30"
+      dur="1s"
+      begin="mouseover"
+      repeatCount="3"/>
+  </circle>
+  
+  <!-- Path with complex event timing -->
+  <path d="M 50,200 L 100,200 L 100,250 L 50,250 Z" fill="green">
+    <animateTransform
+      attributeName="transform"
+      type="rotate"
+      values="0 75 225; 360 75 225"
+      dur="3s"
+      begin="mousedown+0.5s"/>
+  </path>
+  
+  <!-- Element with ID-based trigger -->
+  <rect id="trigger" x="200" y="50" width="40" height="40" fill="yellow"/>
+  <rect x="200" y="100" width="40" height="40" fill="purple">
+    <animateTransform
+      attributeName="transform"
+      type="scale"
+      values="1 1; 2 2; 1 1"
+      dur="1.5s"
+      begin="trigger.click"/>
+  </rect>
+</svg>

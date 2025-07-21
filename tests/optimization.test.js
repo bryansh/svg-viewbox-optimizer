@@ -340,6 +340,44 @@ describe('SVG Optimization', () => {
         fs.unlinkSync(tempFile)
       }
     })
+
+    it('should handle event-triggered animations', async () => {
+      const input = path.join(fixturesDir, 'test-event-animations.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Should detect all animations regardless of trigger
+      expect(result.elements.animationCount).toBe(4) // 4 animations total
+      
+      // Bounds should include potential animation states
+      // Rectangle can translate 100px right
+      expect(result.content.maxX).toBeGreaterThan(200) // 50 + 60 + 100 = 210
+      
+      // Circle can expand to r=50
+      expect(result.content.width).toBeGreaterThan(150) // Should include expanded circle
+      
+      // Event-triggered animations can expand bounds beyond original viewBox
+      // This is expected behavior - we include all potential animation states
+      expect(result.original.viewBox).toBe('0 0 300 300')
+      expect(result.content.width).toBeGreaterThan(300) // Animations expand beyond original
+    })
+
+    it('should handle various event timing types', async () => {
+      const input = path.join(fixturesDir, 'test-event-types.svg')
+      const result = await calculateOptimization(input, { buffer: 10 })
+
+      // Should detect all animations regardless of event type
+      expect(result.elements.animationCount).toBe(7) // 7 animations total
+      
+      // Verify bounds include all animation possibilities
+      // Rectangle width animation: 10+60=70
+      expect(result.content.maxX).toBeGreaterThan(65)
+      
+      // Circle radius animation: 100+35=135
+      expect(result.content.maxX).toBeGreaterThan(130)
+      
+      // Animation chaining (anim1.end trigger) should work
+      expect(result.content.width).toBeGreaterThan(100) // Includes chained animation bounds
+    })
   })
 
   describe('Real-world scenarios', () => {

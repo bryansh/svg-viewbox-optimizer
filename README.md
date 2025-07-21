@@ -17,7 +17,7 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 - 📊 **Detailed reporting** - shows space savings and element analysis
 - 🛡️ **Safe defaults** - adds configurable padding around content
 - 🏗️ **Modular architecture** - extensible design for complex SVG processing
-- ✅ **100% test coverage** - comprehensive test suite with 96 passing tests
+- ✅ **100% test coverage** - comprehensive test suite with 98 passing tests
 
 ## Installation
 
@@ -123,6 +123,8 @@ The optimizer automatically excludes hidden elements from viewBox calculations:
 - **Path morphing** - Shape animations using `d` attribute with precise bounds calculation
 - **Overlapping animations** - Multiple simultaneous animations with proper additive combining
 - **Nested SVG animations** - Animations within nested coordinate systems with proper transformation
+- **Event-triggered animations** - Animations with interactive triggers (click, mouseover, focus, etc.)
+- **Complex timing** - Element-based timing (anim.end), offsets (click+0.5s), and indefinite begin
 - **Keyframe analysis** - Proper keyTimes and calcMode support across all animation types
 
 ### Supported Effects
@@ -239,7 +241,7 @@ The project maintains **100% test coverage** with comprehensive test suites:
 
 ```bash
 npm test
-# 96 tests passing across 7 test suites
+# 98 tests passing across 7 test suites
 # ✅ CLI interface tests
 # ✅ Optimization algorithm tests  
 # ✅ Nested SVG coordinate transformation tests
@@ -247,6 +249,7 @@ npm test
 # ✅ Edge case handling tests
 # ✅ SVG path parser tests
 # ✅ Marker bounds calculation tests
+# ✅ Event-triggered animation tests
 ```
 
 All test expectations have been mathematically verified against the actual SVG structures and geometric calculations.

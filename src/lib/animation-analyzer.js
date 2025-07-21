@@ -122,11 +122,16 @@ function parseAnimationTiming (element) {
   const begin = element.getAttribute('begin') || '0s'
   const end = element.getAttribute('end')
 
+  // Check if begin is event-based (click, mouseover, etc.) or time-based
+  const isEventBased = begin && !/^-?\d*\.?\d+(s|ms)?$/.test(begin)
+  
   return {
     duration: dur === 'indefinite' ? Infinity : parseFloat(dur.replace(/s$/, '')) * 1000,
     repeatCount: repeatCount === 'indefinite' ? Infinity : parseFloat(repeatCount),
-    begin: parseFloat(begin.replace(/s$/, '')) * 1000,
-    end: end ? parseFloat(end.replace(/s$/, '')) * 1000 : null
+    begin: isEventBased ? 0 : parseFloat(begin.replace(/s$/, '')) * 1000, // Treat event-based as if it could start immediately
+    end: end ? parseFloat(end.replace(/s$/, '')) * 1000 : null,
+    isEventBased, // Track for documentation purposes
+    beginValue: begin // Keep original value for debugging
   }
 }
 

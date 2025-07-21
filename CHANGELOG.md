@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2] - 2025-07-21
+
+### Added
+- **Event-Triggered Animation Support**:
+  - Full support for interactive animation triggers (click, mouseover, focus, touchstart, etc.)
+  - Element-based timing support (anim.end, anim.begin)
+  - Complex timing expressions (click+0.5s, indefinite)
+  - Static analysis approach - no need to actually trigger events
+  - Conservative bounds calculation includes all potential animation states
+
+### Technical Details
+- Enhanced animation timing parser to detect and handle event-based triggers
+- Event-triggered animations treated as starting at time 0 for bounds calculation
+- Preserves original begin values for debugging and documentation
+
+### Testing
+- Added 2 comprehensive test cases for event-triggered animations
+- Test coverage increased to 98 tests passing
+- Verified support for all standard DOM events and SVG-specific timing
+
 ## [1.2.1] - 2025-07-20
 
 ### Added

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Standard mouse events -->
+  <rect x="10" y="10" width="30" height="30" fill="red">
+    <animate attributeName="width" from="30" to="60" dur="1s" begin="mouseenter"/>
+  </rect>
+  
+  <!-- Touch events -->
+  <circle cx="100" cy="50" r="20" fill="blue">
+    <animate attributeName="r" from="20" to="35" dur="0.5s" begin="touchstart"/>
+  </circle>
+  
+  <!-- Focus events -->
+  <rect x="150" y="10" width="30" height="30" fill="green" tabindex="0">
+    <animate attributeName="height" from="30" to="50" dur="0.5s" begin="focus"/>
+  </rect>
+  
+  <!-- Element-based timing -->
+  <rect id="rect1" x="10" y="80" width="30" height="30" fill="yellow">
+    <animate id="anim1" attributeName="x" from="10" to="50" dur="1s" begin="0s"/>
+  </rect>
+  <rect x="10" y="120" width="30" height="30" fill="purple">
+    <animate attributeName="x" from="10" to="80" dur="1s" begin="anim1.end"/>
+  </rect>
+  
+  <!-- Complex timing with offset -->
+  <circle cx="100" cy="150" r="20" fill="orange">
+    <animate attributeName="cy" from="150" to="100" dur="1s" begin="click+0.5s"/>
+  </circle>
+  
+  <!-- Indefinite begin -->
+  <rect x="150" y="150" width="30" height="30" fill="pink">
+    <animate attributeName="opacity" from="1" to="0.2" dur="1s" begin="indefinite"/>
+  </rect>
+</svg>
