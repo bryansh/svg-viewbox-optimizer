@@ -118,10 +118,16 @@ class BrowserBundle {
       // Extract function names from exports
       const functionNames = exports.split(',').map(name => name.trim()).filter(name => name)
 
-      // Create window assignments
-      const windowAssignments = functionNames.map(name => `window.${name} = ${name}`).join('\n')
-
-      return windowAssignments
+      // Create window assignments - group by module
+      if (filename === 'transform-parser.js') {
+        // Create TransformParser namespace for transform-parser exports
+        const windowAssignments = functionNames.map(name => `window.TransformParser.${name} = ${name}`).join('\n')
+        return `window.TransformParser = window.TransformParser || {};\n${windowAssignments}`
+      } else {
+        // Standard window assignments for other modules
+        const windowAssignments = functionNames.map(name => `window.${name} = ${name}`).join('\n')
+        return windowAssignments
+      }
     })
 
     // Add comment header for debugging

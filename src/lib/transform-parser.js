@@ -277,9 +277,128 @@ function calculateCumulativeTransform (element, rootElement) {
   return matrix
 }
 
+/**
+ * Parse preserveAspectRatio attribute
+ * @param {string} preserveAspectRatio - The preserveAspectRatio attribute value
+ * @returns {Object} Parsed preserveAspectRatio settings
+ */
+function parsePreserveAspectRatio (preserveAspectRatio) {
+  // Default values according to SVG spec
+  const defaults = {
+    align: 'xMidYMid',
+    meetOrSlice: 'meet'
+  }
+
+  if (!preserveAspectRatio || preserveAspectRatio.trim() === '') {
+    return defaults
+  }
+
+  const parts = preserveAspectRatio.trim().toLowerCase().split(/\s+/)
+
+  // Handle special case: "none"
+  if (parts[0] === 'none') {
+    return {
+      align: 'none',
+      meetOrSlice: 'meet'
+    }
+  }
+
+  const result = { ...defaults }
+
+  // Parse alignment (first part)
+  const validAlignments = [
+    'xminymin', 'xmidymin', 'xmaxymin',
+    'xminymid', 'xmidymid', 'xmaxymid',
+    'xminymax', 'xmidymax', 'xmaxymax'
+  ]
+
+  if (parts[0] && validAlignments.includes(parts[0])) {
+    result.align = parts[0]
+  }
+
+  // Parse meetOrSlice (second part)
+  if (parts[1] && (parts[1] === 'meet' || parts[1] === 'slice')) {
+    result.meetOrSlice = parts[1]
+  }
+
+  return result
+}
+
+/**
+ * Calculate aspect ratio transform for nested SVG
+ * @param {number} viewportWidth - The viewport width
+ * @param {number} viewportHeight - The viewport height
+ * @param {number} viewBoxWidth - The viewBox width
+ * @param {number} viewBoxHeight - The viewBox height
+ * @param {Object} preserveAspectRatio - Parsed preserveAspectRatio settings
+ * @returns {Object} Transform parameters with uniform scaling and alignment offset
+ */
+function calculateAspectRatioTransform (viewportWidth, viewportHeight, viewBoxWidth, viewBoxHeight, preserveAspectRatio) {
+  // Handle "none" case - non-uniform scaling
+  if (preserveAspectRatio.align === 'none') {
+    return {
+      scaleX: viewportWidth / viewBoxWidth,
+      scaleY: viewportHeight / viewBoxHeight,
+      offsetX: 0,
+      offsetY: 0
+    }
+  }
+
+  // Calculate uniform scale factor
+  const scaleX = viewportWidth / viewBoxWidth
+  const scaleY = viewportHeight / viewBoxHeight
+
+  let scale
+  if (preserveAspectRatio.meetOrSlice === 'meet') {
+    // "meet" - scale to fit entirely within viewport
+    scale = Math.min(scaleX, scaleY)
+  } else {
+    // "slice" - scale to fill entire viewport (content may be clipped)
+    scale = Math.max(scaleX, scaleY)
+  }
+
+  // Calculate scaled dimensions
+  const scaledWidth = viewBoxWidth * scale
+  const scaledHeight = viewBoxHeight * scale
+
+  // Calculate alignment offset within viewport
+  let offsetX = 0
+  let offsetY = 0
+
+  // Parse alignment
+  const align = preserveAspectRatio.align.toLowerCase()
+
+  // X alignment
+  if (align.includes('xmin')) {
+    offsetX = 0
+  } else if (align.includes('xmid')) {
+    offsetX = (viewportWidth - scaledWidth) / 2
+  } else if (align.includes('xmax')) {
+    offsetX = viewportWidth - scaledWidth
+  }
+
+  // Y alignment
+  if (align.includes('ymin')) {
+    offsetY = 0
+  } else if (align.includes('ymid')) {
+    offsetY = (viewportHeight - scaledHeight) / 2
+  } else if (align.includes('ymax')) {
+    offsetY = viewportHeight - scaledHeight
+  }
+
+  return {
+    scaleX: scale,
+    scaleY: scale,
+    offsetX,
+    offsetY
+  }
+}
+
 module.exports = {
   Matrix2D,
   parseTransform,
   getElementTransform,
-  calculateCumulativeTransform
+  calculateCumulativeTransform,
+  parsePreserveAspectRatio,
+  calculateAspectRatioTransform
 }

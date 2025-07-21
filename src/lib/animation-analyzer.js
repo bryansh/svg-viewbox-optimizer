@@ -124,7 +124,7 @@ function parseAnimationTiming (element) {
 
   // Check if begin is event-based (click, mouseover, etc.) or time-based
   const isEventBased = begin && !/^-?\d*\.?\d+(s|ms)?$/.test(begin)
-  
+
   return {
     duration: dur === 'indefinite' ? Infinity : parseFloat(dur.replace(/s$/, '')) * 1000,
     repeatCount: repeatCount === 'indefinite' ? Infinity : parseFloat(repeatCount),

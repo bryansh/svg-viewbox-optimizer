@@ -315,15 +315,15 @@ describe('CSS Transform Support', () => {
 
       // Should detect all elements
       expect(result.elements.count).toBe(3)
-      
+
       // External CSS transforms should be applied
       // Rotated rectangle should expand bounds
       expect(result.content.width).toBeGreaterThan(100)
-      
+
       // Scaled rectangle should double in size
       // Original at (150,50) 30x30, scaled 2x should affect bounds
       expect(result.content.maxX).toBeGreaterThan(200)
-      
+
       // Should optimize despite external styles
       expect(result.original.viewBox).toBe('0 0 300 300')
     })
@@ -334,14 +334,14 @@ describe('CSS Transform Support', () => {
 
       // Should detect both elements
       expect(result.elements.count).toBe(2)
-      
+
       // Imported skewX transform should be applied
       // Rectangle with skewX(15deg) should expand bounds horizontally
       expect(result.content.width).toBeGreaterThan(80)
-      
+
       // Local translateY should also work
       expect(result.content.maxY).toBeGreaterThan(100) // Circle at y=80+20+20 radius
-      
+
       expect(result.original.viewBox).toBe('0 0 200 200')
     })
   })

@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2025-07-21
+
+### Added
+- **Complete preserveAspectRatio Support**:
+  - Full implementation of SVG `preserveAspectRatio` attribute handling
+  - Support for all alignment modes: `xMinYMin`, `xMidYMin`, `xMaxYMin`, `xMinYMid`, `xMidYMid`, `xMaxYMid`, `xMinYMax`, `xMidYMax`, `xMaxYMax`
+  - Support for all scaling behaviors: `meet` (scale to fit), `slice` (scale to fill), `none` (non-uniform scaling)
+  - Proper default behavior when `preserveAspectRatio` is not specified (`"xMidYMid meet"`)
+  - Comprehensive test suite with 18 test cases covering all combinations
+
+### Enhanced
+- **Nested SVG Processing**:
+  - Nested SVG elements now correctly handle aspect ratio preservation
+  - Uniform scaling calculations for `meet` and `slice` behaviors
+  - Proper viewport alignment with mathematical precision
+  - Edge case handling for zero dimensions and invalid viewBox values
+
+### Technical Details
+- Added `parsePreserveAspectRatio()` function to parse attribute values
+- Added `calculateAspectRatioTransform()` function for uniform scaling and alignment calculations
+- Updated `calculateNestedSVGTransform()` to use aspect ratio constraints
+- Enhanced browser bundle to expose new transform parser functions
+- All existing functionality preserved with improved accuracy
+
+### Test Coverage
+- Increased test count from 101 to 119 tests across 8 test suites
+- Maintained 100% test coverage with comprehensive preserveAspectRatio testing
+- Updated existing nested SVG test expectations for improved accuracy
+
 ## [1.2.3] - 2025-07-21
 
 ### Fixed

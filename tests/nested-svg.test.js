@@ -94,7 +94,7 @@ describe('Nested SVG Support', () => {
         expect(result.content.minX).toBeCloseTo(140, 1)
         expect(result.content.minY).toBeCloseTo(140, 1)
         expect(result.content.maxX).toBeCloseTo(264, 1)
-        expect(result.content.maxY).toBeCloseTo(222, 0)
+        expect(result.content.maxY).toBeCloseTo(221, 1)
       } finally {
         fs.unlinkSync(tempFile)
       }

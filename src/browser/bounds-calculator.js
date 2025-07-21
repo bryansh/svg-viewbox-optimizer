@@ -108,6 +108,7 @@ window.BoundsCalculator = (function () {
     const width = parseFloat(svgElement.getAttribute('width') || '0')
     const height = parseFloat(svgElement.getAttribute('height') || '0')
     const viewBox = svgElement.getAttribute('viewBox')
+    const preserveAspectRatio = svgElement.getAttribute('preserveAspectRatio') || 'xMidYMid meet'
 
     if (!viewBox || width <= 0 || height <= 0) {
       // No viewBox or invalid dimensions - use identity transform with offset
@@ -140,19 +141,25 @@ window.BoundsCalculator = (function () {
       }
     }
 
-    // Calculate scale factors from viewBox to viewport
-    const scaleX = width / vbWidth
-    const scaleY = height / vbHeight
+    // Parse preserveAspectRatio attribute
+    const aspectRatio = window.TransformParser.parsePreserveAspectRatio(preserveAspectRatio)
+
+    // Calculate aspect ratio transform
+    const transform = window.TransformParser.calculateAspectRatioTransform(
+      width, height, vbWidth, vbHeight, aspectRatio
+    )
 
     if (debug) {
-      console.log(`Nested SVG transform: viewBox=(${vbX},${vbY},${vbWidth},${vbHeight}) viewport=(${x},${y},${width},${height}) scale=(${scaleX},${scaleY})`)
+      console.log(`Nested SVG transform: viewBox=(${vbX},${vbY},${vbWidth},${vbHeight}) viewport=(${x},${y},${width},${height}) preserveAspectRatio=${preserveAspectRatio}`)
+      console.log(`  Aspect ratio: align=${aspectRatio.align}, meetOrSlice=${aspectRatio.meetOrSlice}`)
+      console.log(`  Scale: ${transform.scaleX}, Offset: (${transform.offsetX},${transform.offsetY})`)
     }
 
     return {
-      translateX: x - (vbX * scaleX), // Account for viewBox offset
-      translateY: y - (vbY * scaleY),
-      scaleX,
-      scaleY,
+      translateX: x + transform.offsetX - (vbX * transform.scaleX), // Account for viewBox offset and alignment
+      translateY: y + transform.offsetY - (vbY * transform.scaleY),
+      scaleX: transform.scaleX,
+      scaleY: transform.scaleY,
       viewBoxWidth: vbWidth,
       viewBoxHeight: vbHeight
     }

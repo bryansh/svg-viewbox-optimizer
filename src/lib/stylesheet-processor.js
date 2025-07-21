@@ -3,7 +3,7 @@ const path = require('path')
 
 /**
  * Processes SVG content to inline external stylesheets
- * 
+ *
  * Finds <link> elements that reference external CSS files and replaces
  * them with <style> blocks containing the CSS content.
  */
@@ -41,16 +41,16 @@ class StylesheetProcessor {
       try {
         // Resolve the CSS file path relative to the SVG file
         const cssPath = path.resolve(this.basePath, link.href)
-        
+
         // Read the CSS content
         const cssContent = await fs.readFile(cssPath, 'utf8')
-        
+
         // Create a style block with the CSS content
         const styleBlock = `<style type="text/css">\n/* Inlined from ${link.href} */\n${cssContent}\n</style>`
-        
+
         // Replace the link element with the style block
         processedContent = processedContent.replace(link.fullMatch, styleBlock)
-        
+
         console.log(`Inlined stylesheet: ${link.href}`)
       } catch (error) {
         console.warn(`Warning: Could not load stylesheet ${link.href}:`, error.message)
@@ -92,13 +92,13 @@ class StylesheetProcessor {
       try {
         const cssPath = path.resolve(this.basePath, imp.href)
         const cssContent = await fs.readFile(cssPath, 'utf8')
-        
+
         // Replace the @import with the actual CSS content
         processedContent = processedContent.replace(
           imp.fullMatch,
           `/* Inlined from @import ${imp.href} */\n${cssContent}`
         )
-        
+
         console.log(`Inlined @import: ${imp.href}`)
       } catch (error) {
         console.warn(`Warning: Could not load @import ${imp.href}:`, error.message)

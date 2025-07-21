@@ -105,6 +105,15 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 - **CSS transforms** - Full support via `getComputedStyle()` API
 - **Transform priority** - CSS transforms take precedence over SVG attributes
 
+### preserveAspectRatio Support
+
+- **All alignment modes** - `xMinYMin`, `xMidYMin`, `xMaxYMin`, `xMinYMid`, `xMidYMid`, `xMaxYMid`, `xMinYMax`, `xMidYMax`, `xMaxYMax`
+- **Scaling behaviors** - `meet` (scale to fit entirely), `slice` (scale to fill viewport), `none` (non-uniform scaling)
+- **Default behavior** - Missing `preserveAspectRatio` defaults to `"xMidYMid meet"` per SVG specification
+- **Nested SVG support** - Proper aspect ratio handling for deeply nested SVG elements
+- **Viewport alignment** - Correct positioning within viewport based on alignment specification
+- **Edge case handling** - Graceful handling of zero dimensions and invalid viewBox values
+
 ### Hidden Element Handling
 
 The optimizer automatically excludes hidden elements from viewBox calculations:
@@ -252,7 +261,7 @@ The project maintains **100% test coverage** with comprehensive test suites:
 
 ```bash
 npm test
-# 101 tests passing across 7 test suites
+# 119 tests passing across 8 test suites
 # ✅ CLI interface tests
 # ✅ Optimization algorithm tests  
 # ✅ Nested SVG coordinate transformation tests
@@ -260,6 +269,7 @@ npm test
 # ✅ Edge case handling tests
 # ✅ SVG path parser tests
 # ✅ Marker bounds calculation tests
+# ✅ preserveAspectRatio support tests
 # ✅ Event-triggered animation tests
 # ✅ External stylesheet tests
 # ✅ Symbol chain positioning tests
