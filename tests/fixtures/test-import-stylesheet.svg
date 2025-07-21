@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    @import url('imported-styles.css');
+    
+    .local-style {
+      fill: blue;
+      transform: translateY(20px);
+    }
+  </style>
+  
+  <rect class="imported-transform" x="50" y="50" width="40" height="40" fill="green"/>
+  <circle class="local-style" cx="120" cy="80" r="20"/>
+</svg>

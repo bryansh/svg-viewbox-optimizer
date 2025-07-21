@@ -1,0 +1,5 @@
+.imported-transform {
+  transform: skewX(15deg);
+  stroke: red;
+  stroke-width: 2;
+}

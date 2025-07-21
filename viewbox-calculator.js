@@ -1,7 +1,9 @@
 const fs = require('fs')
+const path = require('path')
 const puppeteer = require('puppeteer')
 // Transform parser - not directly used in main calculator but available to browser modules
 const { BrowserBundle } = require('./src/browser-bundle')
+const { StylesheetProcessor } = require('./src/lib/stylesheet-processor')
 
 async function instantiateBrowser () {
   let browser
@@ -24,8 +26,12 @@ async function calculateOptimization (inputFile, options = {}) {
   const browser = await instantiateBrowser()
 
   try {
-    const svgContent = fs.readFileSync(inputFile, 'utf8')
+    let svgContent = fs.readFileSync(inputFile, 'utf8')
     const buffer = options.buffer !== undefined ? parseInt(options.buffer) : 10
+
+    // Process external stylesheets
+    const stylesheetProcessor = new StylesheetProcessor(path.dirname(inputFile))
+    svgContent = await stylesheetProcessor.processStylesheets(svgContent)
 
     const page = await browser.newPage()
 

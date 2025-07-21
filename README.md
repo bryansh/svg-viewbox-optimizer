@@ -17,7 +17,7 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 - 📊 **Detailed reporting** - shows space savings and element analysis
 - 🛡️ **Safe defaults** - adds configurable padding around content
 - 🏗️ **Modular architecture** - extensible design for complex SVG processing
-- ✅ **100% test coverage** - comprehensive test suite with 98 passing tests
+- ✅ **100% test coverage** - comprehensive test suite with 100 passing tests
 
 ## Installation
 
@@ -94,6 +94,15 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 - **use** - Symbol references with transform inheritance
 - **Nested SVG** - Proper coordinate system transformations with recursive processing
 - **Markers** - Arrow heads and line decorations with accurate positioning
+
+### CSS and Styling Support
+
+- **Inline styles** - `style="transform: rotate(45deg)"`
+- **Internal `<style>` blocks** - CSS rules within the SVG document
+- **External stylesheets** - Automatic inlining of `<link href="styles.css" ...>`
+- **@import statements** - Recursive processing of CSS imports
+- **CSS transforms** - Full support via `getComputedStyle()` API
+- **Transform priority** - CSS transforms take precedence over SVG attributes
 
 ### Hidden Element Handling
 
@@ -196,7 +205,8 @@ svg-viewbox-optimizer/
 │   │   ├── animation-analyzer.js # Animation parsing & analysis
 │   │   ├── effects-analyzer.js # Filter, mask, clipPath effects analysis
 │   │   ├── animation-combiner.js # Overlapping animation combination
-│   │   └── svg-path-parser.js # SVG path data parsing with Bezier math
+│   │   ├── svg-path-parser.js # SVG path data parsing with Bezier math
+│   │   └── stylesheet-processor.js # External CSS inlining
 │   └── browser-bundle.js      # Module loader and browser compatibility
 └── index.js                   # CLI interface
 ```
@@ -241,7 +251,7 @@ The project maintains **100% test coverage** with comprehensive test suites:
 
 ```bash
 npm test
-# 98 tests passing across 7 test suites
+# 100 tests passing across 7 test suites
 # ✅ CLI interface tests
 # ✅ Optimization algorithm tests  
 # ✅ Nested SVG coordinate transformation tests
@@ -250,6 +260,7 @@ npm test
 # ✅ SVG path parser tests
 # ✅ Marker bounds calculation tests
 # ✅ Event-triggered animation tests
+# ✅ External stylesheet tests
 ```
 
 All test expectations have been mathematically verified against the actual SVG structures and geometric calculations.

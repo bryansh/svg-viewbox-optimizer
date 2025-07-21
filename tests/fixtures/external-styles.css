@@ -1,0 +1,13 @@
+.external-rotate {
+  transform: rotate(45deg);
+  fill: purple;
+}
+
+#scaled-rect {
+  transform: scale(2);
+  opacity: 0.8;
+}
+
+.combined-transform {
+  transform: translate(20px, 10px) rotate(30deg);
+}

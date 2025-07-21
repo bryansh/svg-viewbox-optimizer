@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <link href="external-styles.css" rel="stylesheet" type="text/css"/>
+  </defs>
+  
+  <!-- Rectangle with external CSS rotation -->
+  <rect class="external-rotate" x="50" y="50" width="40" height="40"/>
+  
+  <!-- Rectangle with external CSS scale -->
+  <rect id="scaled-rect" x="150" y="50" width="30" height="30" fill="blue"/>
+  
+  <!-- Circle with combined transform -->
+  <circle class="combined-transform" cx="100" cy="150" r="25" fill="green"/>
+</svg>

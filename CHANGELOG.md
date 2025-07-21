@@ -12,15 +12,23 @@ All notable changes to this project will be documented in this file.
   - Static analysis approach - no need to actually trigger events
   - Conservative bounds calculation includes all potential animation states
 
+- **External Stylesheet Support**:
+  - Automatic inlining of external CSS files referenced via `<link>` elements
+  - Recursive processing of `@import` statements within style blocks
+  - Path resolution relative to SVG file location
+  - Graceful error handling for missing stylesheets
+  - Console logging of inlined stylesheets for debugging
+
 ### Technical Details
 - Enhanced animation timing parser to detect and handle event-based triggers
 - Event-triggered animations treated as starting at time 0 for bounds calculation
-- Preserves original begin values for debugging and documentation
+- Created `StylesheetProcessor` class for preprocessing external CSS references
+- External stylesheets converted to inline `<style>` blocks before browser analysis
 
 ### Testing
-- Added 2 comprehensive test cases for event-triggered animations
-- Test coverage increased to 98 tests passing
-- Verified support for all standard DOM events and SVG-specific timing
+- Added 4 comprehensive test cases for new features
+- Test coverage increased to 100 tests passing
+- Verified support for all standard DOM events and CSS loading scenarios
 
 ## [1.2.1] - 2025-07-20
 
