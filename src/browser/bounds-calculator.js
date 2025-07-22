@@ -40,26 +40,32 @@ window.BoundsCalculator = (function () {
         const y = parseFloat(element.getAttribute('y') || '0')
         const width = parseFloat(element.getAttribute('width') || '0')
         const height = parseFloat(element.getAttribute('height') || '0')
+
         if (debug) {
           console.log(`  Animated rect bounds from attributes: x=${x}, y=${y}, w=${width}, h=${height}`)
         }
+
         return { x, y, width, height }
       } else if (tagName === 'circle') {
         const cx = parseFloat(element.getAttribute('cx') || '0')
         const cy = parseFloat(element.getAttribute('cy') || '0')
         const r = parseFloat(element.getAttribute('r') || '0')
+
         if (debug) {
           console.log(`  Animated circle bounds: cx=${cx}, cy=${cy}, r=${r}`)
         }
+
         return { x: cx - r, y: cy - r, width: r * 2, height: r * 2 }
       } else if (tagName === 'ellipse') {
         const cx = parseFloat(element.getAttribute('cx') || '0')
         const cy = parseFloat(element.getAttribute('cy') || '0')
         const rx = parseFloat(element.getAttribute('rx') || '0')
         const ry = parseFloat(element.getAttribute('ry') || '0')
+
         if (debug) {
           console.log(`  Animated ellipse bounds: cx=${cx}, cy=${cy}, rx=${rx}, ry=${ry}`)
         }
+
         return { x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 }
       }
     }
@@ -80,6 +86,7 @@ window.BoundsCalculator = (function () {
 
       if (debug) {
         console.log(`  ${tagName} getBBox: x=${bbox.x}, y=${bbox.y}, w=${bbox.width}, h=${bbox.height}`)
+
         if (markerBounds.hasMarkers) {
           console.log(`  ${tagName} with markers: x=${finalBounds.x}, y=${finalBounds.y}, w=${finalBounds.width}, h=${finalBounds.height}`)
         }
@@ -130,6 +137,7 @@ window.BoundsCalculator = (function () {
       if (debug) {
         console.log(`Nested SVG invalid viewBox dimensions: ${viewBox}`)
       }
+
       return {
         translateX: x,
         translateY: y,

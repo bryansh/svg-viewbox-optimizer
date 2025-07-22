@@ -132,7 +132,7 @@ describe('Script-Generated Dynamic DOM Content', () => {
       // Test different delay values - use shorter delays for CI
       const mediumDelay = process.env.CI ? 50 : 150
       const longDelay = process.env.CI ? 120 : 400
-      
+
       const resultMedium = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: mediumDelay
