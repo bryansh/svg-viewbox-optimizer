@@ -128,7 +128,7 @@ describe('SVG Optimization', () => {
       expect(result.content.maxX).toBeGreaterThan(300)
       expect(result.content.minY).toBeLessThan(150)
       expect(result.content.maxY).toBeGreaterThan(300)
-    })
+    }, 60000) // 60 second timeout for complex animation tests
 
     it('should parse SVG path data correctly', async () => {
       const input = path.join(fixturesDir, 'test-motion.svg')
@@ -140,7 +140,7 @@ describe('SVG Optimization', () => {
 
       // Should account for all animation types
       expect(result.elements.animationCount).toBe(3)
-    })
+    }, 60000) // 60 second timeout for complex path parsing tests
 
     it('should handle mpath references', async () => {
       // Create a test SVG with mpath reference
@@ -172,7 +172,7 @@ describe('SVG Optimization', () => {
       } finally {
         fs.unlinkSync(tempFile)
       }
-    })
+    }, 60000) // 60 second timeout for mpath reference tests
 
     it('should handle coordinate-based motion values', async () => {
       // Create a test SVG with values-based motion

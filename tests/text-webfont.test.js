@@ -114,7 +114,7 @@ describe('SVG Text Elements with Web Fonts', () => {
       } finally {
         fs.unlinkSync(tempFile)
       }
-    }, 10000)
+    }, 30000) // Increased timeout for web font loading
 
     it('should handle text with nonexistent web fonts', async () => {
       const testSvg = `<?xml version="1.0" encoding="UTF-8"?>

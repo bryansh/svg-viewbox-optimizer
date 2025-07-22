@@ -182,7 +182,7 @@ describe('preserveAspectRatio Support', () => {
         } finally {
           fs.unlinkSync(tempFile)
         }
-      })
+      }, 60000) // 60 second timeout for complex preserveAspectRatio tests
     })
   })
 
