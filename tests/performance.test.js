@@ -104,11 +104,11 @@ describe('Performance and Timing Tests', () => {
     it('should handle complex SVGs within reasonable time', async () => {
       const complexSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
-  ${Array.from({ length: 100 }, (_, i) => 
+  ${Array.from({ length: 100 }, (_, i) =>
     `<rect x="${i * 10}" y="${i * 5}" width="50" height="30" fill="hsl(${i * 3.6}, 70%, 50%)"/>`
   ).join('\n  ')}
   <g transform="translate(500, 500)">
-    ${Array.from({ length: 50 }, (_, i) => 
+    ${Array.from({ length: 50 }, (_, i) =>
       `<circle cx="${Math.cos(i * 0.1) * 100}" cy="${Math.sin(i * 0.1) * 100}" r="20" fill="blue"/>`
     ).join('\n    ')}
   </g>
