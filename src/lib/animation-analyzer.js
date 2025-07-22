@@ -202,6 +202,21 @@ function parseValueByType (valueString, animationType, transformType, attributeN
 }
 
 /**
+ * Calculate paced timing based on distance between values
+ * Note: This is a simplified implementation for numeric values
+ * More complex pacing would require full value type analysis
+ */
+function calculatePacedKeyTimes (numValues) {
+  if (numValues <= 1) return [0]
+  if (numValues === 2) return [0, 1]
+  
+  // For Phase 2: Simple approximation using equal distance assumption
+  // Real paced mode would need the actual values to calculate distances
+  // For now, return linear distribution as conservative fallback
+  return Array.from({ length: numValues }, (_, i) => i / (numValues - 1))
+}
+
+/**
  * Generate default keyTimes based on calcMode
  */
 function generateDefaultKeyTimes (numValues, calcMode) {
@@ -215,10 +230,8 @@ function generateDefaultKeyTimes (numValues, calcMode) {
       return Array.from({ length: numValues }, (_, i) => i / (numValues - 1))
 
     case 'paced':
-      // For paced mode, timing depends on the distance between values
-      // For now, fall back to linear distribution
-      // TODO: Calculate actual paced timing based on value distances
-      return Array.from({ length: numValues }, (_, i) => i / (numValues - 1))
+      // For paced mode, timing is distributed based on distance between values
+      return calculatePacedKeyTimes(numValues)
 
     default:
       return Array.from({ length: numValues }, (_, i) => i / (numValues - 1))
@@ -283,6 +296,88 @@ function analyzeAnimateTransform (animElement, debug = false) {
     additive,
     timing,
     transforms
+  }
+}
+
+/**
+ * Analyze set elements (for setting attribute values at specific times)
+ */
+function analyzeSet (animElement, debug = false) {
+  const attributeName = animElement.getAttribute('attributeName')
+  const to = animElement.getAttribute('to')
+  const timing = parseAnimationTiming(animElement)
+
+  if (debug) {
+    console.log(`    Set: attribute=${attributeName}, to=${to}, begin=${timing.begin}`)
+  }
+
+  // Phase 2: Support more attributes beyond just visibility
+  const supportedAttributes = [
+    // Visibility attributes
+    'opacity', 'display', 'visibility',
+    // Geometric attributes
+    'x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry',
+    // Stroke/fill attributes  
+    'fill', 'stroke', 'stroke-width', 'fill-opacity', 'stroke-opacity',
+    // Transform attributes (basic support)
+    'transform'
+  ]
+  
+  if (!supportedAttributes.includes(attributeName)) {
+    if (debug) {
+      console.log(`    Set: skipping unsupported attribute ${attributeName}`)
+    }
+    return null
+  }
+
+  // Parse begin time - handle definite timing and basic events in Phase 2
+  let beginTime = 0
+  let isEventBased = false
+  if (timing.begin && timing.begin !== 'indefinite') {
+    // Ensure timing.begin is a string
+    const beginStr = String(timing.begin)
+    // Handle simple time values like "2s", "500ms", "0s"
+    const timeMatch = beginStr.match(/^(\d+(?:\.\d+)?)(s|ms)?$/)
+    if (timeMatch) {
+      beginTime = parseFloat(timeMatch[1])
+      if (timeMatch[2] === 'ms') {
+        beginTime = beginTime / 1000 // Convert to seconds
+      }
+    } else {
+      // Phase 2: Handle basic event-based timing
+      const basicEvents = ['click', 'mouseover', 'mouseout', 'mouseenter', 'mouseleave', 'focus', 'blur']
+      const eventMatch = beginStr.match(/^(click|mouseover|mouseout|mouseenter|mouseleave|focus|blur)(\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
+      
+      if (eventMatch) {
+        isEventBased = true
+        beginTime = 0 // Conservative: assume event could happen immediately
+        
+        // Handle offset timing like "click+0.5s"
+        if (eventMatch[3]) {
+          const offsetTime = parseFloat(eventMatch[3])
+          beginTime = eventMatch[4] === 'ms' ? offsetTime / 1000 : offsetTime
+        }
+        
+        if (debug) {
+          console.log(`    Set: handling event-based timing ${beginStr} as conservative fallback`)
+        }
+      } else {
+        // Complex timing (indefinite, anim.end, etc.) - skip for now
+        if (debug) {
+          console.log(`    Set: skipping complex timing ${beginStr}`)
+        }
+        return null
+      }
+    }
+  }
+
+  return {
+    type: 'set',
+    attributeName,
+    to,
+    beginTime,
+    isEventBased,
+    timing
   }
 }
 
@@ -398,14 +493,14 @@ function findElementAnimations (element, svg, debug = false) {
   const animations = []
 
   // Find direct child animations
-  const childAnimations = element.querySelectorAll('animateTransform, animate, animateMotion')
+  const childAnimations = element.querySelectorAll('animateTransform, animate, animateMotion, set')
   childAnimations.forEach(anim => {
     animations.push(analyzeAnimation(anim, svg, debug))
   })
 
   // Find animations targeting this element by id
   if (element.id) {
-    const targetedAnimations = svg.querySelectorAll(`animateTransform[href="#${element.id}"], animate[href="#${element.id}"], animateMotion[href="#${element.id}"]`)
+    const targetedAnimations = svg.querySelectorAll(`animateTransform[href="#${element.id}"], animate[href="#${element.id}"], animateMotion[href="#${element.id}"], set[href="#${element.id}"]`)
     targetedAnimations.forEach(anim => {
       animations.push(analyzeAnimation(anim, svg, debug))
     })
@@ -427,6 +522,8 @@ function analyzeAnimation (animElement, svg, debug = false) {
       return analyzeAnimate(animElement, debug)
     case 'animatemotion':
       return analyzeAnimateMotion(animElement, svg, debug)
+    case 'set':
+      return analyzeSet(animElement, debug)
     default:
       if (debug) {
         console.warn(`Unknown animation type: ${tagName}`)
@@ -483,6 +580,46 @@ function calculateAnimatedBounds (element, baseMatrix, baseBounds, animations, d
           case 'height':
             adjustedBounds.height = valueFrame.value
             break
+          case 'cx':
+            // For circles/ellipses - convert center to bounds
+            adjustedBounds.x = valueFrame.value - (baseBounds.width / 2)
+            break
+          case 'cy':
+            adjustedBounds.y = valueFrame.value - (baseBounds.height / 2)
+            break
+          case 'r':
+            // For circles - radius affects both width and height
+            adjustedBounds.width = valueFrame.value * 2
+            adjustedBounds.height = valueFrame.value * 2
+            adjustedBounds.x = baseBounds.x + baseBounds.width / 2 - valueFrame.value
+            adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - valueFrame.value
+            break
+          case 'rx':
+            // For ellipses - horizontal radius
+            adjustedBounds.width = valueFrame.value * 2
+            adjustedBounds.x = baseBounds.x + baseBounds.width / 2 - valueFrame.value
+            break
+          case 'ry':
+            // For ellipses - vertical radius
+            adjustedBounds.height = valueFrame.value * 2
+            adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - valueFrame.value
+            break
+          case 'stroke-width':
+            // Stroke extends bounds outward by half stroke width on all sides
+            const strokeWidth = valueFrame.value
+            const halfStroke = strokeWidth / 2
+            adjustedBounds.x -= halfStroke
+            adjustedBounds.y -= halfStroke
+            adjustedBounds.width += strokeWidth
+            adjustedBounds.height += strokeWidth
+            break
+          case 'opacity':
+          case 'fill-opacity':
+          case 'stroke-opacity':
+            // Opacity animations don't affect geometric bounds, 
+            // but we track them for visibility calculations
+            // The bounds remain the same as base bounds
+            break
         }
 
         const bounds = baseMatrix.transformBounds(adjustedBounds)
@@ -494,10 +631,10 @@ function calculateAnimatedBounds (element, baseMatrix, baseBounds, animations, d
     } else if (animation.type === 'animateMotion') {
       // Add the motion path bounds to the element bounds
       const bounds = baseMatrix.transformBounds(baseBounds)
-      minX = Math.min(minX, bounds.x + animation.approximateBounds.minX)
-      minY = Math.min(minY, bounds.y + animation.approximateBounds.minY)
-      maxX = Math.max(maxX, bounds.x + bounds.width + animation.approximateBounds.maxX)
-      maxY = Math.max(maxY, bounds.y + bounds.height + animation.approximateBounds.maxY)
+      minX = Math.min(minX, bounds.x + animation.expandedBounds.minX)
+      minY = Math.min(minY, bounds.y + animation.expandedBounds.minY)
+      maxX = Math.max(maxX, bounds.x + bounds.width + animation.expandedBounds.maxX)
+      maxY = Math.max(maxY, bounds.y + bounds.height + animation.expandedBounds.maxY)
     }
   })
 

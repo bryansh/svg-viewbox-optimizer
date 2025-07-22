@@ -37,6 +37,154 @@ window.VisibilityChecker = (function () {
   }
 
   /**
+   * Evaluate animated visibility states for an element
+   * @param {Element} element - The element to check
+   * @param {Element} rootSvg - The root SVG element for context
+   * @param {boolean} debug - Enable debug logging
+   * @returns {Object} Visibility state information
+   */
+  function evaluateAnimatedVisibility (element, rootSvg, debug = false) {
+    // Find all visibility-related animations for this element
+    const animations = []
+    
+    // Check direct child animations
+    const childAnimations = element.querySelectorAll('set, animate')
+    childAnimations.forEach(anim => {
+      const attributeName = anim.getAttribute('attributeName')
+      if (['opacity', 'display', 'visibility'].includes(attributeName)) {
+        animations.push(parseVisibilityAnimation(anim))
+      }
+    })
+
+    // Check animations targeting this element by id
+    if (element.id) {
+      const targetedAnimations = rootSvg.querySelectorAll(`set[href="#${element.id}"], animate[href="#${element.id}"]`)
+      targetedAnimations.forEach(anim => {
+        const attributeName = anim.getAttribute('attributeName')
+        if (['opacity', 'display', 'visibility'].includes(attributeName)) {
+          animations.push(parseVisibilityAnimation(anim))
+        }
+      })
+    }
+
+    // Filter out null animations (unsupported timing, etc.)
+    const validAnimations = animations.filter(anim => anim !== null)
+
+    if (validAnimations.length === 0) {
+      return { hasAnimations: false, isVisible: null }
+    }
+
+    // For Phase 1: Conservative approach
+    // If any animation could make the element visible at any point, include it
+    // If all animations make it invisible from the start, exclude it
+    let couldBeVisible = false
+    let couldBeInvisible = false
+
+    validAnimations.forEach(anim => {
+      if (!anim || !anim.type) return // Skip null/invalid animations
+      
+      if (anim.type === 'set') {
+        // For event-based set animations, be more conservative
+        // Element might be visible before the event triggers
+        if (anim.isEventBased) {
+          // Conservative: assume element could be visible initially
+          couldBeVisible = true
+          // But also track that it could become invisible
+          if ((anim.attributeName === 'opacity' && anim.to === '0') ||
+              (anim.attributeName === 'display' && anim.to === 'none') ||
+              (anim.attributeName === 'visibility' && anim.to === 'hidden')) {
+            couldBeInvisible = true
+          }
+        } else {
+          // Time-based animations: check if the set animation makes element visible or invisible
+          if (anim.attributeName === 'opacity' && anim.to !== '0') {
+            couldBeVisible = true
+          } else if (anim.attributeName === 'display' && anim.to !== 'none') {
+            couldBeVisible = true
+          } else if (anim.attributeName === 'visibility' && anim.to !== 'hidden') {
+            couldBeVisible = true
+          } else {
+            couldBeInvisible = true
+          }
+        }
+      } else if (anim.type === 'animate' && anim.attributeName === 'opacity') {
+        // For opacity animations, check if any value is non-zero
+        const hasVisibleOpacity = anim.values && anim.values.some(v => parseFloat(v) > 0)
+        if (hasVisibleOpacity) {
+          couldBeVisible = true
+        } else {
+          couldBeInvisible = true
+        }
+      }
+    })
+
+    if (debug && validAnimations.length > 0) {
+      console.log(`Element has ${validAnimations.length} visibility animations, couldBeVisible: ${couldBeVisible}, couldBeInvisible: ${couldBeInvisible}`)
+    }
+
+    // Conservative approach: if it could be visible at any point, include it
+    return {
+      hasAnimations: true,
+      isVisible: couldBeVisible,
+      animations: validAnimations
+    }
+  }
+
+  /**
+   * Parse a visibility-related animation element
+   * @param {Element} animElement - The animation element (set or animate)
+   * @returns {Object|null} Parsed animation data or null if unsupported
+   */
+  function parseVisibilityAnimation (animElement) {
+    const tagName = animElement.tagName.toLowerCase()
+    const attributeName = animElement.getAttribute('attributeName')
+    const begin = animElement.getAttribute('begin') || '0s'
+
+    // Phase 2: Handle definite timing and basic event-based timing
+    const beginStr = String(begin)
+    const timeMatch = beginStr.match(/^(\d+(?:\.\d+)?)(s|ms)?$/)
+    const eventMatch = beginStr.match(/^(click|mouseover|mouseout|mouseenter|mouseleave|focus|blur)(\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
+    
+    if (!timeMatch && !eventMatch && beginStr !== '0s' && beginStr !== '0') {
+      return null // Skip complex timing (anim.end, indefinite, etc.)
+    }
+
+    const isEventBased = !!eventMatch
+
+    if (tagName === 'set') {
+      const to = animElement.getAttribute('to')
+      return {
+        type: 'set',
+        attributeName,
+        to,
+        begin,
+        isEventBased
+      }
+    } else if (tagName === 'animate' && attributeName === 'opacity') {
+      const values = animElement.getAttribute('values')
+      const from = animElement.getAttribute('from')
+      const to = animElement.getAttribute('to')
+      
+      let parsedValues = []
+      if (values) {
+        parsedValues = values.split(';').map(v => v.trim())
+      } else if (from && to) {
+        parsedValues = [from, to]
+      }
+
+      return {
+        type: 'animate',
+        attributeName,
+        values: parsedValues,
+        begin,
+        isEventBased
+      }
+    }
+
+    return null
+  }
+
+  /**
    * Check if an element is visible (not hidden by display, visibility, or opacity)
    * @param {Element} element - The element to check
    * @param {Element} rootSvg - The root SVG element for parent context
@@ -44,6 +192,17 @@ window.VisibilityChecker = (function () {
    * @returns {boolean} True if element is visible
    */
   function isElementVisible (element, rootSvg, debug = false) {
+    // Check for animated visibility first
+    const animatedVisibility = evaluateAnimatedVisibility(element, rootSvg, debug)
+    if (animatedVisibility.hasAnimations) {
+      // If element has visibility animations, use the animated visibility result
+      if (debug && !animatedVisibility.isVisible) {
+        console.log('Element hidden by animations:', element)
+      }
+      return animatedVisibility.isVisible
+    }
+
+    // No animations, check static visibility
     // First check element attributes (fastest check)
     if (element.getAttribute('display') === 'none' ||
         element.getAttribute('visibility') === 'hidden') {
@@ -172,6 +331,8 @@ window.VisibilityChecker = (function () {
   // Public API
   return {
     shouldIncludeElement,
-    isElementVisible
+    isElementVisible,
+    evaluateAnimatedVisibility,
+    parseVisibilityAnimation
   }
 })()

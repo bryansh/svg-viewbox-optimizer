@@ -327,6 +327,45 @@ window.SVGAnalyzer = (function () {
               case 'height':
                 adjustedBounds.height = valueFrame.value
                 break
+              case 'cx':
+                // For circles/ellipses - convert center to bounds
+                adjustedBounds.x = valueFrame.value - (baseBounds.width / 2)
+                break
+              case 'cy':
+                adjustedBounds.y = valueFrame.value - (baseBounds.height / 2)
+                break
+              case 'r':
+                // For circles - radius affects both width and height
+                adjustedBounds.width = valueFrame.value * 2
+                adjustedBounds.height = valueFrame.value * 2
+                adjustedBounds.x = baseBounds.x + baseBounds.width / 2 - valueFrame.value
+                adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - valueFrame.value
+                break
+              case 'rx':
+                // For ellipses - horizontal radius
+                adjustedBounds.width = valueFrame.value * 2
+                adjustedBounds.x = baseBounds.x + baseBounds.width / 2 - valueFrame.value
+                break
+              case 'ry':
+                // For ellipses - vertical radius
+                adjustedBounds.height = valueFrame.value * 2
+                adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - valueFrame.value
+                break
+              case 'stroke-width':
+                // Stroke extends bounds outward by half stroke width on all sides
+                const strokeWidth = valueFrame.value
+                const halfStroke = strokeWidth / 2
+                adjustedBounds.x -= halfStroke
+                adjustedBounds.y -= halfStroke
+                adjustedBounds.width += strokeWidth
+                adjustedBounds.height += strokeWidth
+                break
+              case 'opacity':
+              case 'fill-opacity':
+              case 'stroke-opacity':
+                // Opacity animations don't affect geometric bounds
+                // The bounds remain the same as base bounds
+                break
               case 'd':
                 // Path morphing - use normalized bounds if available
                 if (valueFrame.normalizedValue && valueFrame.normalizedValue.bounds) {
@@ -371,6 +410,71 @@ window.SVGAnalyzer = (function () {
           }
 
           updateGlobalBounds(expandedBounds)
+        } else if (animation.type === 'set') {
+          // Process set animations - they set a single value at a specific time
+          let adjustedBounds = { ...baseBounds }
+
+          // Handle different attribute types (same logic as animate)
+          switch (animation.attributeName) {
+            case 'x':
+              adjustedBounds.x = parseFloat(animation.to)
+              break
+            case 'y':
+              adjustedBounds.y = parseFloat(animation.to)
+              break
+            case 'width':
+              adjustedBounds.width = parseFloat(animation.to)
+              break
+            case 'height':
+              adjustedBounds.height = parseFloat(animation.to)
+              break
+            case 'cx':
+              adjustedBounds.x = parseFloat(animation.to) - (baseBounds.width / 2)
+              break
+            case 'cy':
+              adjustedBounds.y = parseFloat(animation.to) - (baseBounds.height / 2)
+              break
+            case 'r':
+              const radius = parseFloat(animation.to)
+              adjustedBounds.width = radius * 2
+              adjustedBounds.height = radius * 2
+              adjustedBounds.x = baseBounds.x + baseBounds.width / 2 - radius
+              adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - radius
+              break
+            case 'rx':
+              const rxRadius = parseFloat(animation.to)
+              adjustedBounds.width = rxRadius * 2
+              adjustedBounds.x = baseBounds.x + baseBounds.width / 2 - rxRadius
+              break
+            case 'ry':
+              const ryRadius = parseFloat(animation.to)
+              adjustedBounds.height = ryRadius * 2
+              adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - ryRadius
+              break
+            case 'stroke-width':
+              const setStrokeWidth = parseFloat(animation.to)
+              const setHalfStroke = setStrokeWidth / 2
+              adjustedBounds.x -= setHalfStroke
+              adjustedBounds.y -= setHalfStroke
+              adjustedBounds.width += setStrokeWidth
+              adjustedBounds.height += setStrokeWidth
+              break
+            case 'opacity':
+            case 'fill-opacity':
+            case 'stroke-opacity':
+            case 'display':
+            case 'visibility':
+            case 'fill':
+            case 'stroke':
+              // These don't affect geometric bounds
+              break
+          }
+
+          if (debug && ['x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry', 'stroke-width'].includes(animation.attributeName)) {
+            console.log(`    Set ${animation.attributeName}=${animation.to} bounds: x=${adjustedBounds.x.toFixed(2)}, y=${adjustedBounds.y.toFixed(2)}, w=${adjustedBounds.width.toFixed(2)}, h=${adjustedBounds.height.toFixed(2)}`)
+          }
+
+          updateGlobalBounds(adjustedBounds)
         }
       })
     }
