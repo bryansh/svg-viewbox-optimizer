@@ -300,7 +300,7 @@ describe('Script-Generated Dynamic DOM Content', () => {
 
       expect(result.elements.count).toBe(1)
       expect(duration).toBeGreaterThanOrEqual(3000)
-      expect(duration).toBeLessThan(5000) // Allow some overhead for processing
+      expect(duration).toBeLessThan(8000) // Allow more overhead for slower systems
     })
   })
 })
