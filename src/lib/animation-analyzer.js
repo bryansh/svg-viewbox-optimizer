@@ -121,16 +121,27 @@ function parseAnimationTiming (element) {
   const repeatCount = element.getAttribute('repeatCount') || '1'
   const begin = element.getAttribute('begin') || '0s'
   const end = element.getAttribute('end')
+  const fill = element.getAttribute('fill') || 'remove'
+  const repeatDur = element.getAttribute('repeatDur')
 
   // Check if begin is event-based (click, mouseover, etc.) or time-based
   const isEventBased = begin && !/^-?\d*\.?\d+(s|ms)?$/.test(begin)
+  
+  // Check for syncbase timing (elementId.begin or elementId.end)
+  const syncbaseMatch = begin && begin.match(/^([a-zA-Z][\w\-]*)\.(begin|end)(?:\+(.*))?$/)
+  const isSyncbase = !!syncbaseMatch
 
   return {
     duration: dur === 'indefinite' ? Infinity : parseFloat(dur.replace(/s$/, '')) * 1000,
     repeatCount: repeatCount === 'indefinite' ? Infinity : parseFloat(repeatCount),
-    begin: isEventBased ? 0 : parseFloat(begin.replace(/s$/, '')) * 1000, // Treat event-based as if it could start immediately
+    repeatDur: repeatDur ? parseFloat(repeatDur.replace(/s$/, '')) * 1000 : null,
+    begin: isEventBased || isSyncbase ? 0 : parseFloat(begin.replace(/s$/, '')) * 1000, // Treat event-based and syncbase as if it could start immediately
     end: end ? parseFloat(end.replace(/s$/, '')) * 1000 : null,
+    fill, // 'remove' or 'freeze'
     isEventBased, // Track for documentation purposes
+    isSyncbase,
+    syncbaseTarget: syncbaseMatch ? syncbaseMatch[1] : null,
+    syncbaseType: syncbaseMatch ? syncbaseMatch[2] : null,
     beginValue: begin // Keep original value for debugging
   }
 }
@@ -161,9 +172,87 @@ function parseKeyframes (element) {
         { time: 1, value: parseValueByType(to, animationType, transformType, attributeName) }
       ]
     } else if (from && by) {
+      // 'by' is relative to 'from', so we need to calculate the end value
+      const fromValue = parseValueByType(from, animationType, transformType, attributeName)
+      const byValue = parseValueByType(by, animationType, transformType, attributeName)
+      
+      // Calculate the end value based on the type
+      let toValue
+      if (fromValue.type === 'attribute' && typeof fromValue.value === 'number' && 
+          byValue.type === 'attribute' && typeof byValue.value === 'number') {
+        // For numeric attributes, add the values
+        toValue = {
+          type: 'attribute',
+          attribute: attributeName,
+          value: fromValue.value + byValue.value
+        }
+      } else if (fromValue.type === 'translate' && byValue.type === 'translate') {
+        // For translate transforms, add x and y
+        toValue = {
+          type: 'translate',
+          x: fromValue.x + byValue.x,
+          y: fromValue.y + byValue.y
+        }
+      } else if (fromValue.type === 'scale' && byValue.type === 'scale') {
+        // For scale transforms, multiply (scale is multiplicative)
+        toValue = {
+          type: 'scale',
+          x: fromValue.x * byValue.x,
+          y: fromValue.y * byValue.y
+        }
+      } else if (fromValue.type === 'rotate' && byValue.type === 'rotate') {
+        // For rotate transforms, add angles
+        toValue = {
+          type: 'rotate',
+          angle: fromValue.angle + byValue.angle,
+          cx: fromValue.cx,
+          cy: fromValue.cy
+        }
+      } else {
+        // For other types, fall back to using 'by' as absolute value
+        toValue = byValue
+      }
+      
       return [
-        { time: 0, value: parseValueByType(from, animationType, transformType, attributeName) },
-        { time: 1, value: parseValueByType(by, animationType, transformType, attributeName) }
+        { time: 0, value: fromValue },
+        { time: 1, value: toValue }
+      ]
+    } else if (by && !from) {
+      // Only 'by' is specified - this is relative to current value
+      // For conservative bounds calculation, we'll consider both no change and the by offset
+      const byValue = parseValueByType(by, animationType, transformType, attributeName)
+      
+      // Create identity/zero start value and offset end value
+      let fromValue, toValue
+      if (byValue.type === 'attribute') {
+        fromValue = {
+          type: 'attribute',
+          attribute: attributeName,
+          value: 0 // Start from 0 (conservative)
+        }
+        toValue = byValue // The 'by' value becomes the end value
+      } else if (byValue.type === 'translate') {
+        fromValue = { type: 'translate', x: 0, y: 0 }
+        toValue = byValue
+      } else if (byValue.type === 'scale') {
+        fromValue = { type: 'scale', x: 1, y: 1 }
+        // For scale, 'by' is multiplicative, so we multiply
+        toValue = {
+          type: 'scale',
+          x: 1 * byValue.x,
+          y: 1 * byValue.y
+        }
+      } else if (byValue.type === 'rotate') {
+        fromValue = { type: 'rotate', angle: 0, cx: byValue.cx || 0, cy: byValue.cy || 0 }
+        toValue = byValue
+      } else {
+        fromValue = { type: 'attribute', attribute: attributeName, value: 0 }
+        toValue = byValue
+      }
+      
+      return [
+        { time: 0, value: fromValue },
+        { time: 1, value: toValue }
       ]
     }
     return []
@@ -244,6 +333,7 @@ function generateDefaultKeyTimes (numValues, calcMode) {
 function analyzeAnimateTransform (animElement, debug = false) {
   const type = animElement.getAttribute('type') || 'translate'
   const additive = animElement.getAttribute('additive') === 'sum'
+  const accumulate = animElement.getAttribute('accumulate') === 'sum'
   const keyframes = parseKeyframes(animElement)
   const timing = parseAnimationTiming(animElement)
 
@@ -294,6 +384,7 @@ function analyzeAnimateTransform (animElement, debug = false) {
     type: 'animateTransform',
     transformType: type,
     additive,
+    accumulate,
     timing,
     transforms
   }
@@ -362,11 +453,28 @@ function analyzeSet (animElement, debug = false) {
           console.log(`    Set: handling event-based timing ${beginStr} as conservative fallback`)
         }
       } else {
-        // Complex timing (indefinite, anim.end, etc.) - skip for now
-        if (debug) {
-          console.log(`    Set: skipping complex timing ${beginStr}`)
+        // Phase 3: Check for syncbase timing
+        const syncbaseMatch = beginStr.match(/^([a-zA-Z][\w\-]*)\.(begin|end)(?:\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
+        if (syncbaseMatch) {
+          isEventBased = true // Treat syncbase similar to events for conservative handling
+          beginTime = 0 // Conservative: assume the referenced animation could start immediately
+          
+          // Handle offset timing like "anim1.end+0.5s"
+          if (syncbaseMatch[3]) {
+            const offsetTime = parseFloat(syncbaseMatch[3])
+            beginTime = syncbaseMatch[4] === 'ms' ? offsetTime / 1000 : offsetTime
+          }
+          
+          if (debug) {
+            console.log(`    Set: handling syncbase timing ${beginStr} as conservative fallback`)
+          }
+        } else {
+          // Other complex timing (indefinite, etc.) - skip for now
+          if (debug) {
+            console.log(`    Set: skipping complex timing ${beginStr}`)
+          }
+          return null
         }
-        return null
       }
     }
   }
@@ -386,6 +494,8 @@ function analyzeSet (animElement, debug = false) {
  */
 function analyzeAnimate (animElement, debug = false) {
   const attributeName = animElement.getAttribute('attributeName')
+  const additive = animElement.getAttribute('additive') === 'sum'
+  const accumulate = animElement.getAttribute('accumulate') === 'sum'
   const keyframes = parseKeyframes(animElement)
   const timing = parseAnimationTiming(animElement)
 
@@ -403,6 +513,8 @@ function analyzeAnimate (animElement, debug = false) {
   return {
     type: 'animate',
     attributeName,
+    additive,
+    accumulate,
     timing,
     values
   }

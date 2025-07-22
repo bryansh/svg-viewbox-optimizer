@@ -140,16 +140,17 @@ window.VisibilityChecker = (function () {
     const attributeName = animElement.getAttribute('attributeName')
     const begin = animElement.getAttribute('begin') || '0s'
 
-    // Phase 2: Handle definite timing and basic event-based timing
+    // Phase 2/3: Handle definite timing, event-based timing, and syncbase timing
     const beginStr = String(begin)
     const timeMatch = beginStr.match(/^(\d+(?:\.\d+)?)(s|ms)?$/)
     const eventMatch = beginStr.match(/^(click|mouseover|mouseout|mouseenter|mouseleave|focus|blur)(\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
+    const syncbaseMatch = beginStr.match(/^([a-zA-Z][\w\-]*)\.(begin|end)(?:\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
     
-    if (!timeMatch && !eventMatch && beginStr !== '0s' && beginStr !== '0') {
-      return null // Skip complex timing (anim.end, indefinite, etc.)
+    if (!timeMatch && !eventMatch && !syncbaseMatch && beginStr !== '0s' && beginStr !== '0') {
+      return null // Skip other complex timing (indefinite, etc.)
     }
 
-    const isEventBased = !!eventMatch
+    const isEventBased = !!(eventMatch || syncbaseMatch)
 
     if (tagName === 'set') {
       const to = animElement.getAttribute('to')
