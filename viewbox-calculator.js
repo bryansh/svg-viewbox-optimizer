@@ -23,6 +23,8 @@ async function instantiateBrowser () {
 }
 
 async function calculateOptimization (inputFile, options = {}) {
+  const fontTimeout = options.fontTimeout || 5000 // Default 5 second font loading timeout
+  const failOnFontTimeout = options.failOnFontTimeout !== false // Default to true (fail on timeout)
   const browser = await instantiateBrowser()
 
   try {
@@ -44,11 +46,50 @@ async function calculateOptimization (inputFile, options = {}) {
     const browserBundle = new BrowserBundle()
     const html = await browserBundle.buildHTML(svgContent)
 
-    await page.setContent(html)
+    await page.setContent(html, { 
+      waitUntil: 'networkidle0', // Wait for network requests to finish
+      timeout: 10000 // 10 second timeout for content loading
+    })
 
     // Calculate bounds using the new modular architecture
-    const bounds = await page.evaluate((debugMode) => {
+    const bounds = await page.evaluate(async (debugMode, fontTimeoutMs, failOnTimeout) => {
       const debug = debugMode
+
+      // Wait for fonts to load before calculating bounds
+      try {
+        if (document.fonts && document.fonts.ready) {
+          if (debug) {
+            console.log('Waiting for fonts to load...')
+          }
+          
+          // Add a timeout to prevent hanging on slow font loads
+          const fontLoadPromise = document.fonts.ready
+          const timeoutPromise = new Promise((resolve, reject) => {
+            setTimeout(() => {
+              if (failOnTimeout) {
+                reject(new Error(`Font loading timeout: Web fonts took longer than ${fontTimeoutMs/1000} seconds to load. This could result in inaccurate text bounds.`))
+              } else {
+                if (debug) {
+                  console.log('Font loading timeout reached, proceeding with fallback fonts')
+                }
+                resolve()
+              }
+            }, fontTimeoutMs)
+          })
+          
+          await Promise.race([fontLoadPromise, timeoutPromise])
+          if (debug) {
+            console.log('Fonts loaded successfully')
+          }
+        } else if (debug) {
+          console.log('Font loading API not available, proceeding without font synchronization')
+        }
+      } catch (fontError) {
+        if (debug) {
+          console.log('Font loading failed, proceeding with fallback fonts:', fontError.message)
+        }
+        // Continue with analysis even if font loading fails
+      }
 
       // Use the modular SVG analyzer
       if (typeof window.SVGAnalyzer === 'undefined') {
@@ -74,7 +115,7 @@ async function calculateOptimization (inputFile, options = {}) {
         effectsCount: result.effectsCount,
         elements: result.elements
       }
-    }, options.debug)
+    }, options.debug, fontTimeout, failOnFontTimeout)
 
     await browser.close()
 
