@@ -1,6 +1,6 @@
 {
   "name": "svg-viewbox-optimizer",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Advanced SVG viewBox optimizer with support for complex transforms, animations, and modular architecture",
   "main": "viewbox-calculator.js",
   "bin": {

@@ -25,6 +25,7 @@ async function instantiateBrowser () {
 async function calculateOptimization (inputFile, options = {}) {
   const fontTimeout = options.fontTimeout || 5000 // Default 5 second font loading timeout
   const failOnFontTimeout = options.failOnFontTimeout !== false // Default to true (fail on timeout)
+  const scriptDelay = options.scriptDelay || 0 // Default 0ms - no additional wait for script-generated content
   const browser = await instantiateBrowser()
 
   try {
@@ -50,6 +51,16 @@ async function calculateOptimization (inputFile, options = {}) {
       waitUntil: 'networkidle0', // Wait for network requests to finish
       timeout: 10000 // 10 second timeout for content loading
     })
+    
+    // Wait for script-generated content if configured
+    if (scriptDelay > 0) {
+      if (options.debug) {
+        console.log(`Waiting ${scriptDelay}ms for script-generated content...`)
+      }
+      await page.evaluate((delay) => {
+        return new Promise(resolve => setTimeout(resolve, delay))
+      }, scriptDelay)
+    }
 
     // Calculate bounds using the new modular architecture
     const bounds = await page.evaluate(async (debugMode, fontTimeoutMs, failOnTimeout) => {

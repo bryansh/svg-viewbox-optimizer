@@ -17,7 +17,14 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 - 📊 **Detailed reporting** - shows space savings and element analysis
 - 🛡️ **Safe defaults** - adds configurable padding around content
 - 🏗️ **Modular architecture** - extensible design for complex SVG processing
-- ✅ **100% test coverage** - comprehensive test suite with 100 passing tests
+
+### Advanced Features (New!)
+
+- 🔀 **Switch element support** - Handles conditional rendering with `<switch>`, `requiredFeatures`, `requiredExtensions`, and `systemLanguage`
+- 🌐 **ForeignObject HTML layout** - Accurately measures HTML content inside `<foreignObject>` elements, accounting for overflow
+- ⏱️ **Script-generated content** - Configurable delay to capture dynamically added SVG elements via JavaScript
+- 🔤 **Web font synchronization** - Waits for web fonts to load before measuring text bounds
+- ✅ **100% test coverage** - comprehensive test suite with 189 passing tests
 
 ## Installation
 
@@ -49,6 +56,9 @@ svg-optimize input.svg [options]
 
 - `-o, --output <file>` - Output filename (default: `input_optimized.svg`)
 - `-b, --buffer <pixels>` - Buffer padding around content in pixels (default: `10`)
+- `-s, --script-delay <ms>` - Wait time for script-generated content in milliseconds (default: `0`)
+- `-f, --font-timeout <ms>` - Maximum wait time for web fonts in milliseconds (default: `5000`)
+- `--no-fail-on-font-timeout` - Continue even if font loading times out
 - `--dry-run` - Preview optimization without writing file
 - `--debug` - Show detailed calculation information
 - `-h, --help` - Display help
@@ -66,9 +76,24 @@ Save with custom filename:
 svg-optimize logo.svg -o logo-optimized.svg
 ```
 
+Wait for dynamically generated content:
+```bash
+svg-optimize dashboard.svg --script-delay 2000
+```
+
+Handle SVGs with web fonts:
+```bash
+svg-optimize typography.svg --font-timeout 3000 --no-fail-on-font-timeout
+```
+
 Debug mode to see calculation details:
 ```bash
 svg-optimize animation.svg --debug --dry-run
+```
+
+Combine multiple options:
+```bash
+svg-optimize interactive.svg -b 15 -s 1000 -f 2000 --debug -o final.svg
 ```
 
 ## How it works
@@ -186,7 +211,10 @@ const { calculateOptimization } = require('svg-viewbox-optimizer/viewbox-calcula
 async function optimizeSVG() {
   const result = await calculateOptimization('input.svg', {
     buffer: 10,
-    debug: false
+    debug: false,
+    scriptDelay: 1000,  // Wait 1 second for script-generated content
+    fontTimeout: 5000,  // Max 5 seconds for web fonts
+    failOnFontTimeout: true  // Error if fonts take too long
   });
   
   console.log(result.optimized.viewBox); // "43.54 138.08 441.66 340.82"
@@ -261,7 +289,7 @@ The project maintains **100% test coverage** with comprehensive test suites:
 
 ```bash
 npm test
-# 119 tests passing across 8 test suites
+# 189 tests passing across 16 test suites
 # ✅ CLI interface tests
 # ✅ Optimization algorithm tests  
 # ✅ Nested SVG coordinate transformation tests

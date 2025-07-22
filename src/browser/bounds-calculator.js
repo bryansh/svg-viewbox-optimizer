@@ -17,18 +17,17 @@ window.BoundsCalculator = (function () {
   function getElementBounds (element, debug = false) {
     const tagName = element.tagName.toLowerCase()
 
+    // Check if element is inside a switch element
+    const isInsideSwitch = isElementInsideSwitch(element)
+    
+    // Handle foreignObject elements with special HTML layout timing handling
+    if (tagName === 'foreignobject') {
+      return getForeignObjectBounds(element, debug)
+    }
+    
     // Handle elements that don't support getBBox or need special processing
-    if (tagName === 'foreignobject' || tagName === 'svg' || !element.getBBox) {
-      const x = parseFloat(element.getAttribute('x') || '0')
-      const y = parseFloat(element.getAttribute('y') || '0')
-      const width = parseFloat(element.getAttribute('width') || '0')
-      const height = parseFloat(element.getAttribute('height') || '0')
-
-      if (debug) {
-        console.log(`  ${tagName} bounds from attributes: x=${x}, y=${y}, w=${width}, h=${height}`)
-      }
-
-      return { x, y, width, height }
+    if (tagName === 'svg' || !element.getBBox || isInsideSwitch) {
+      return getElementBoundsFromAttributes(element, tagName, debug)
     }
 
     // For animated elements, getBBox() can return different values depending on
@@ -321,6 +320,244 @@ window.BoundsCalculator = (function () {
 
       default:
         return []
+    }
+  }
+
+  /**
+   * Get bounds for foreignObject elements, accounting for HTML content layout
+   * @param {Element} element - The foreignObject element
+   * @param {boolean} debug - Enable debug logging
+   * @returns {Object} Bounds object with x, y, width, height
+   */
+  function getForeignObjectBounds (element, debug = false) {
+    // Get declared dimensions from attributes
+    const declaredX = parseFloat(element.getAttribute('x') || '0')
+    const declaredY = parseFloat(element.getAttribute('y') || '0')
+    const declaredWidth = parseFloat(element.getAttribute('width') || '0')
+    const declaredHeight = parseFloat(element.getAttribute('height') || '0')
+
+    if (debug) {
+      console.log(`  foreignObject declared bounds: x=${declaredX}, y=${declaredY}, w=${declaredWidth}, h=${declaredHeight}`)
+    }
+
+    // Try to measure actual HTML content bounds
+    try {
+      const actualBounds = measureForeignObjectContent(element, debug)
+      
+      if (actualBounds) {
+        // Use the larger of declared vs actual dimensions to ensure no clipping
+        const finalBounds = {
+          x: declaredX,
+          y: declaredY,
+          width: Math.max(declaredWidth, actualBounds.width),
+          height: Math.max(declaredHeight, actualBounds.height)
+        }
+
+        if (debug && (finalBounds.width > declaredWidth || finalBounds.height > declaredHeight)) {
+          console.log(`  foreignObject content overflow detected: actual=(${actualBounds.width}x${actualBounds.height}) vs declared=(${declaredWidth}x${declaredHeight})`)
+          console.log(`  Using expanded bounds: w=${finalBounds.width}, h=${finalBounds.height}`)
+        }
+
+        return finalBounds
+      }
+    } catch (e) {
+      if (debug) {
+        console.log(`  Failed to measure foreignObject content:`, e.message)
+      }
+    }
+
+    // Fallback to declared dimensions
+    return {
+      x: declaredX,
+      y: declaredY,
+      width: declaredWidth,
+      height: declaredHeight
+    }
+  }
+
+  /**
+   * Measure the actual rendered dimensions of HTML content inside a foreignObject
+   * @param {Element} foreignObject - The foreignObject element
+   * @param {boolean} debug - Enable debug logging
+   * @returns {Object|null} Object with width, height of actual content, or null if measurement failed
+   */
+  function measureForeignObjectContent (foreignObject, debug = false) {
+    try {
+      // Get the HTML content container (usually the direct child div)
+      const htmlContent = foreignObject.querySelector('*')
+      if (!htmlContent) {
+        if (debug) {
+          console.log(`    No HTML content found in foreignObject`)
+        }
+        return null
+      }
+
+      // Check if content contains elements that might need loading time
+      const hasImages = htmlContent.querySelector('img') !== null
+      const hasLinks = htmlContent.querySelector('link[rel="stylesheet"], style') !== null
+      
+      if (hasImages || hasLinks) {
+        if (debug) {
+          console.log(`    ForeignObject contains images/styles that may need loading time`)
+        }
+      }
+
+      // Get the bounding rect of the HTML content
+      const contentRect = htmlContent.getBoundingClientRect()
+      const foreignRect = foreignObject.getBoundingClientRect()
+
+      if (debug) {
+        console.log(`    HTML content rect: ${contentRect.width}x${contentRect.height}`)
+        console.log(`    ForeignObject rect: ${foreignRect.width}x${foreignRect.height}`)
+      }
+
+      // Return the content dimensions relative to the SVG coordinate system
+      // We need to convert from screen pixels to SVG units
+      const svgElement = foreignObject.closest('svg')
+      if (svgElement) {
+        const svgRect = svgElement.getBoundingClientRect()
+        const svgViewBox = svgElement.getAttribute('viewBox')
+        
+        if (svgViewBox) {
+          const [, , vbWidth, vbHeight] = svgViewBox.split(' ').map(Number)
+          const scaleX = vbWidth / svgRect.width
+          const scaleY = vbHeight / svgRect.height
+
+          const svgWidth = contentRect.width * scaleX
+          const svgHeight = contentRect.height * scaleY
+
+          if (debug) {
+            console.log(`    Converted to SVG units: ${svgWidth}x${svgHeight} (scale: ${scaleX}, ${scaleY})`)
+          }
+
+          return {
+            width: svgWidth,
+            height: svgHeight
+          }
+        }
+      }
+
+      // Fallback: assume 1:1 pixel mapping
+      return {
+        width: contentRect.width,
+        height: contentRect.height
+      }
+
+    } catch (e) {
+      if (debug) {
+        console.log(`    Error measuring foreignObject content:`, e.message)
+      }
+      return null
+    }
+  }
+
+  /**
+   * Check if an element is inside a switch element
+   * @param {Element} element - The element to check
+   * @returns {boolean} True if the element is inside a switch
+   */
+  function isElementInsideSwitch (element) {
+    let parent = element.parentElement
+    while (parent) {
+      if (parent.tagName && parent.tagName.toLowerCase() === 'switch') {
+        return true
+      }
+      parent = parent.parentElement
+    }
+    return false
+  }
+
+  /**
+   * Get element bounds from attributes for elements that can't use getBBox
+   * @param {Element} element - The element
+   * @param {string} tagName - Element tag name
+   * @param {boolean} debug - Enable debug logging
+   * @returns {Object} Bounds object
+   */
+  function getElementBoundsFromAttributes (element, tagName, debug = false) {
+    switch (tagName) {
+      case 'rect':
+      case 'foreignobject':
+      case 'svg':
+      case 'image': {
+        const x = parseFloat(element.getAttribute('x') || '0')
+        const y = parseFloat(element.getAttribute('y') || '0')
+        const width = parseFloat(element.getAttribute('width') || '0')
+        const height = parseFloat(element.getAttribute('height') || '0')
+        
+        if (debug) {
+          console.log(`  ${tagName} bounds from attributes: x=${x}, y=${y}, w=${width}, h=${height}`)
+        }
+        
+        return { x, y, width, height }
+      }
+
+      case 'circle': {
+        const cx = parseFloat(element.getAttribute('cx') || '0')
+        const cy = parseFloat(element.getAttribute('cy') || '0')
+        const r = parseFloat(element.getAttribute('r') || '0')
+        
+        if (debug) {
+          console.log(`  ${tagName} bounds from attributes: cx=${cx}, cy=${cy}, r=${r}`)
+        }
+        
+        return { x: cx - r, y: cy - r, width: r * 2, height: r * 2 }
+      }
+
+      case 'ellipse': {
+        const cx = parseFloat(element.getAttribute('cx') || '0')
+        const cy = parseFloat(element.getAttribute('cy') || '0')
+        const rx = parseFloat(element.getAttribute('rx') || '0')
+        const ry = parseFloat(element.getAttribute('ry') || '0')
+        
+        if (debug) {
+          console.log(`  ${tagName} bounds from attributes: cx=${cx}, cy=${cy}, rx=${rx}, ry=${ry}`)
+        }
+        
+        return { x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 }
+      }
+
+      case 'line': {
+        const x1 = parseFloat(element.getAttribute('x1') || '0')
+        const y1 = parseFloat(element.getAttribute('y1') || '0')
+        const x2 = parseFloat(element.getAttribute('x2') || '0')
+        const y2 = parseFloat(element.getAttribute('y2') || '0')
+        
+        const x = Math.min(x1, x2)
+        const y = Math.min(y1, y2)
+        const width = Math.abs(x2 - x1)
+        const height = Math.abs(y2 - y1)
+        
+        if (debug) {
+          console.log(`  ${tagName} bounds from attributes: x1=${x1}, y1=${y1}, x2=${x2}, y2=${y2}`)
+        }
+        
+        return { x, y, width, height }
+      }
+
+      default: {
+        // For other elements like path, polyline, polygon, text
+        // Try getBBox if available, otherwise return zero bounds
+        if (element.getBBox) {
+          try {
+            const bbox = element.getBBox()
+            if (debug) {
+              console.log(`  ${tagName} bounds from getBBox: x=${bbox.x}, y=${bbox.y}, w=${bbox.width}, h=${bbox.height}`)
+            }
+            return { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height }
+          } catch (e) {
+            if (debug) {
+              console.log(`  getBBox failed for ${tagName}:`, e)
+            }
+          }
+        }
+        
+        if (debug) {
+          console.log(`  ${tagName} no bounds available, returning zero`)
+        }
+        
+        return { x: 0, y: 0, width: 0, height: 0 }
+      }
     }
   }
 

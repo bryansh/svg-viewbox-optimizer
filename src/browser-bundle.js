@@ -43,6 +43,7 @@ class BrowserBundle {
       // New clean browser modules (no processing needed)
       this.loadBrowserModule('visibility-checker.js'),
       this.loadBrowserModule('bounds-calculator.js'),
+      this.loadBrowserModule('switch-evaluator.js'),
       this.loadBrowserModule('svg-analyzer.js'),
 
       // Legacy Node.js modules (need processing)

@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2025-07-22
+
+### Added
+- **SVG Switch Element Support**:
+  - Full support for `<switch>` elements with conditional rendering
+  - Evaluates `requiredFeatures`, `requiredExtensions`, and `systemLanguage` attributes
+  - Comprehensive feature detection for W3C SVG features
+  - Handles nested switch elements and proper bounds calculation for switch-selected content
+  - Added new `switch-evaluator.js` module with 7 test cases
+
+- **Enhanced ForeignObject Support**:
+  - Improved bounds calculation for `<foreignObject>` elements with HTML content
+  - Detects and accounts for HTML content overflow beyond declared dimensions
+  - Proper coordinate system conversion from browser pixels to SVG units
+  - Handles complex HTML layouts, CSS styling, embedded images, and web fonts
+  - Added 5 new test cases for various foreignObject scenarios
+
+- **Script-Generated Content Support**:
+  - New `scriptDelay` option to wait for dynamically generated SVG content
+  - Captures elements added via JavaScript timeouts, intervals, or async operations
+  - CLI flag `-s, --script-delay <ms>` for command-line usage
+  - API option for programmatic usage
+  - Added comprehensive test suite with 8 test cases
+
+- **CLI Enhancements**:
+  - Added `-s, --script-delay <ms>` flag for script-generated content timing
+  - Added `-f, --font-timeout <ms>` flag to configure font loading timeout
+  - Added `--no-fail-on-font-timeout` flag to continue on font timeout
+
+### Fixed
+- Elements inside `<switch>` containers now use attribute-based bounds calculation when getBBox() fails
+- ForeignObject content measurement now properly handles overflow scenarios
+
+### Technical Details
+- Total test count increased from 119 to 189 tests
+- Added `isElementInsideSwitch()` check in bounds calculator
+- Added `getForeignObjectBounds()` and `measureForeignObjectContent()` functions
+- Implemented Promise-based delay mechanism for script execution timing
+
 ## [1.3.0] - 2025-07-21
 
 ### Added

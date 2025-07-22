@@ -10,12 +10,15 @@ const program = new Command()
 program
   .name('svg-optimize')
   .description('Optimize SVG viewBox to minimize whitespace around animated content')
-  .version('1.3.0')
+  .version('1.4.0')
   .argument('<input>', 'input SVG file')
   .option('-o, --output <file>', 'output file (default: input_optimized.svg)')
   .option('-b, --buffer <pixels>', 'buffer padding around content', '10')
   .option('--dry-run', 'show results without writing file')
   .option('--debug', 'show debug information')
+  .option('-s, --script-delay <ms>', 'wait time for script-generated content in milliseconds', '0')
+  .option('-f, --font-timeout <ms>', 'maximum wait time for web fonts in milliseconds', '5000')
+  .option('--no-fail-on-font-timeout', 'continue even if font loading times out')
   .parse()
 
 const options = program.opts()
@@ -30,7 +33,16 @@ async function optimizeSVG () {
   try {
     console.log(chalk.blue('Analyzing SVG...'))
 
-    const result = await calculateOptimization(inputFile, options)
+    // Convert CLI options to the format expected by calculateOptimization
+    const calcOptions = {
+      buffer: parseInt(options.buffer),
+      debug: options.debug,
+      scriptDelay: parseInt(options.scriptDelay),
+      fontTimeout: parseInt(options.fontTimeout),
+      failOnFontTimeout: options.failOnFontTimeout
+    }
+
+    const result = await calculateOptimization(inputFile, calcOptions)
 
     // Display results using the structured data
     console.log(`Original viewBox: ${result.original.viewBox}`)

@@ -139,15 +139,42 @@ window.SVGAnalyzer = (function () {
       }
     })
 
-    // Process direct visual elements
+    // First, handle switch elements and get active children
+    let activeElementsFromSwitches = []
+    if (window.SwitchEvaluator) {
+      activeElementsFromSwitches = window.SwitchEvaluator.getActiveElementsFromSwitches(svg, debug)
+    }
+
+    // Process direct visual elements (excluding those inside switch elements)
     const visualElements = svg.querySelectorAll('rect, circle, ellipse, line, polyline, polygon, path, text, image, g, foreignObject, svg')
 
     if (debug) {
-      console.log(`Processing ${visualElements.length} visual elements`)
+      console.log(`Processing ${visualElements.length} visual elements + ${activeElementsFromSwitches.length} switch-selected elements`)
     }
 
+    // Combine regular elements with active switch elements
+    const allElementsToProcess = []
+    
+    // Add regular visual elements (with conditional filtering)
     visualElements.forEach(element => {
+      // Check visibility
       if (!window.VisibilityChecker.shouldIncludeElement(element, svg, debug)) return
+      
+      // Check conditional attributes (requiredFeatures, etc.) and switch membership
+      if (window.SwitchEvaluator && !window.SwitchEvaluator.shouldIncludeElement(element, debug)) return
+      
+      allElementsToProcess.push(element)
+    })
+    
+    // Add active elements from switch evaluation
+    activeElementsFromSwitches.forEach(element => {
+      // These are already conditionally selected, but still check visibility
+      if (window.VisibilityChecker.shouldIncludeElement(element, svg, debug)) {
+        allElementsToProcess.push(element)
+      }
+    })
+
+    allElementsToProcess.forEach(element => {
 
       const tagName = element.tagName.toLowerCase()
 
