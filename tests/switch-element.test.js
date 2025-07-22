@@ -4,7 +4,7 @@ const { calculateOptimization } = require('../viewbox-calculator')
 
 describe('SVG Switch Element Support', () => {
   let tempFiles = []
-  
+
   afterEach(() => {
     // Clean up temporary files
     tempFiles.forEach(file => {

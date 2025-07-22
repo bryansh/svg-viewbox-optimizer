@@ -18,10 +18,10 @@ describe('SMIL Visibility Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should only include the visible blue rectangle (80x80 at 50,50)
         expect(result.elements.count).toBe(1)
-        expect(result.newViewBox.x).toBe(40)  // 50-10 (buffer)
+        expect(result.newViewBox.x).toBe(40) // 50-10 (buffer)
         expect(result.newViewBox.y).toBe(40)
         expect(result.newViewBox.width).toBe(100) // 80+20 (width + buffer*2)
         expect(result.newViewBox.height).toBe(100)
@@ -44,11 +44,11 @@ describe('SMIL Visibility Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should only include the visible green circle (r=40 at cx=100,cy=100)
         // Circle bounds: (60,60) to (140,140), with buffer: (50,50) to (150,150)
         expect(result.elements.count).toBe(1)
-        expect(result.newViewBox.x).toBe(50)  
+        expect(result.newViewBox.x).toBe(50)
         expect(result.newViewBox.y).toBe(50)
         expect(result.newViewBox.width).toBe(100) // 80+20 (diameter + buffer*2)
         expect(result.newViewBox.height).toBe(100)
@@ -71,10 +71,10 @@ describe('SMIL Visibility Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should only include the visible blue rectangle
         expect(result.elements.count).toBe(1)
-        expect(result.newViewBox.x).toBe(40)  // 50-10
+        expect(result.newViewBox.x).toBe(40) // 50-10
         expect(result.newViewBox.y).toBe(40)
         expect(result.newViewBox.width).toBe(100) // 80+20
         expect(result.newViewBox.height).toBe(100)
@@ -97,12 +97,12 @@ describe('SMIL Visibility Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include both rectangles (conservative approach)
         // Blue: (50,50) to (130,130), Red: (200,200) to (270,270)
         // Combined: (50,50) to (270,270), with buffer: (40,40) to (280,280)
         expect(result.elements.count).toBe(2)
-        expect(result.newViewBox.x).toBe(40)  // 50-10
+        expect(result.newViewBox.x).toBe(40) // 50-10
         expect(result.newViewBox.y).toBe(40)
         expect(result.newViewBox.width).toBe(240) // 270-50+20 = 240
         expect(result.newViewBox.height).toBe(240)
@@ -127,7 +127,7 @@ describe('SMIL Visibility Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include both rectangles (conservative: element is visible at some point)
         expect(result.elements.count).toBe(2)
         expect(result.newViewBox.x).toBe(40)
@@ -153,7 +153,7 @@ describe('SMIL Visibility Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include both rectangles since opacity goes to visible values
         expect(result.elements.count).toBe(2)
         expect(result.newViewBox.x).toBe(40)
@@ -181,7 +181,7 @@ describe('SMIL Visibility Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include both rectangles (conservative fallback for complex timing)
         expect(result.elements.count).toBe(2)
         expect(result.newViewBox.x).toBe(40)
@@ -210,7 +210,7 @@ describe('SMIL Visibility Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should only include blue rectangle (green is static hidden, red is animated hidden)
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(40)

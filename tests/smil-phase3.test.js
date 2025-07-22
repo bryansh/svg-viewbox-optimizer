@@ -17,7 +17,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include both start (50) and end (150) positions
         // Bounds: (50,50) to (210,110), with buffer: (40,40) to (220,120)
         expect(result.elements.count).toBe(1)
@@ -43,7 +43,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Same bounds as freeze - we consider all animation values
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(40)
@@ -70,14 +70,14 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // from="100" by="80" means animate from 100 to 180
         // Bounds: (100,100) to (230,150), with buffer: (90,90) to (240,160)
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(90)
         expect(result.newViewBox.y).toBe(90)
         expect(result.newViewBox.width).toBe(150) // 240 - 90
-        expect(result.newViewBox.height).toBe(70)  // 160 - 90
+        expect(result.newViewBox.height).toBe(70) // 160 - 90
       } finally {
         fs.unlinkSync(tempFile)
       }
@@ -96,7 +96,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // by="100" without from means relative animation
         // Conservative approach: consider from cx=0 to cx=100 (the 'by' value)
         // Original circle at cx=100: (70,70) to (130,130)
@@ -125,7 +125,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // from="0,0" by="100,50" means translate from (0,0) to (100,50)
         // Base rect: (50,50) to (110,110)
         // Translated by (100,50): (150,100) to (210,160)
@@ -155,7 +155,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Discrete mode jumps between values: 50, 150, 100
         // All positions should be considered
         expect(result.elements.count).toBe(1)
@@ -186,7 +186,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Conservative: both elements included even though red rect might be hidden
         expect(result.elements.count).toBe(2)
         expect(result.newViewBox.x).toBe(40)
@@ -214,7 +214,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include all animated positions for both elements
         // Circle: cx from 100 to 200, bounds (70,70) to (230,130)
         // Rect: y from 50 to 150, bounds (250,50) to (290,190)
@@ -244,7 +244,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Animation repeats for 3 seconds (3 times with 1s duration)
         // Bounds remain same as single animation
         expect(result.elements.count).toBe(1)
@@ -272,7 +272,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // With accumulate="sum", each repeat adds to previous
         // Conservative approach: consider all possible values
         expect(result.elements.count).toBe(1)
@@ -303,7 +303,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Circle: cx from 100 to 200 (100+100), bounds (70,70) to (230,130)
         // Rect: x values 50,150,100 starting after circle, bounds (50,200) to (210,260)
         // Combined: (50,70) to (230,260), with buffer: (40,60) to (240,270)
@@ -331,7 +331,7 @@ describe('SMIL Phase 3 Advanced Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Spline interpolation doesn't change bounds calculation
         // All keyframe values are still considered: x=50, 200, 100
         expect(result.elements.count).toBe(1)

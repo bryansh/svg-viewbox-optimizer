@@ -4,7 +4,7 @@ const { calculateOptimization } = require('../viewbox-calculator')
 
 describe('Script-Generated Dynamic DOM Content', () => {
   let tempFiles = []
-  
+
   afterEach(() => {
     // Clean up temporary files
     tempFiles.forEach(file => {
@@ -42,7 +42,7 @@ describe('Script-Generated Dynamic DOM Content', () => {
 </svg>`
 
       const tempFile = createTempFile(immediateSvg)
-      const result = await calculateOptimization(tempFile, { 
+      const result = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 0 // No delay needed for synchronous content
       })
@@ -74,18 +74,18 @@ describe('Script-Generated Dynamic DOM Content', () => {
 </svg>`
 
       const tempFile = createTempFile(delayedSvg)
-      
+
       // Without script delay - might still catch some delayed content due to page load timing
-      const resultNoDelay = await calculateOptimization(tempFile, { 
+      const resultNoDelay = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 0
       })
       // May capture 1 or 2 elements depending on timing
       expect(resultNoDelay.elements.count).toBeGreaterThanOrEqual(1)
       expect(resultNoDelay.elements.count).toBeLessThanOrEqual(2)
-      
+
       // With sufficient script delay - should capture the delayed content
-      const resultWithDelay = await calculateOptimization(tempFile, { 
+      const resultWithDelay = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 300
       })
@@ -128,16 +128,16 @@ describe('Script-Generated Dynamic DOM Content', () => {
 </svg>`
 
       const tempFile = createTempFile(multiDelayedSvg)
-      
+
       // Test different delay values
-      const result150ms = await calculateOptimization(tempFile, { 
+      const result150ms = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 150
       })
       // Should have at least 2 elements (initial + maybe first delayed)
       expect(result150ms.elements.count).toBeGreaterThanOrEqual(2)
-      
-      const result400ms = await calculateOptimization(tempFile, { 
+
+      const result400ms = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 400
       })
@@ -174,7 +174,7 @@ describe('Script-Generated Dynamic DOM Content', () => {
 </svg>`
 
       const tempFile = createTempFile(complexScriptSvg)
-      const result = await calculateOptimization(tempFile, { 
+      const result = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 300
       })
@@ -212,18 +212,18 @@ describe('Script-Generated Dynamic DOM Content', () => {
 </svg>`
 
       const tempFile = createTempFile(timedSvg)
-      
+
       // Test that longer delays capture more content
-      const result0 = await calculateOptimization(tempFile, { 
+      const result0 = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 0
       })
-      
-      const result600 = await calculateOptimization(tempFile, { 
+
+      const result600 = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 600
       })
-      
+
       // With longer delay should capture at least as many elements (or more)
       expect(result600.elements.count).toBeGreaterThanOrEqual(result0.elements.count)
     })
@@ -235,13 +235,13 @@ describe('Script-Generated Dynamic DOM Content', () => {
 </svg>`
 
       const tempFile = createTempFile(svg)
-      
+
       // Default behavior - no script delay
       const result = await calculateOptimization(tempFile, { buffer: 10 })
       expect(result.elements.count).toBe(1)
-      
+
       // Explicit zero delay should be the same
-      const resultZero = await calculateOptimization(tempFile, { 
+      const resultZero = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 0
       })
@@ -273,9 +273,9 @@ describe('Script-Generated Dynamic DOM Content', () => {
 </svg>`
 
       const tempFile = createTempFile(errorScriptSvg)
-      
+
       // Should still process successfully, just without the failed dynamic content
-      const result = await calculateOptimization(tempFile, { 
+      const result = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 200
       })
@@ -289,15 +289,15 @@ describe('Script-Generated Dynamic DOM Content', () => {
 </svg>`
 
       const tempFile = createTempFile(svg)
-      
+
       // Test with a long delay (3 seconds)
       const startTime = Date.now()
-      const result = await calculateOptimization(tempFile, { 
+      const result = await calculateOptimization(tempFile, {
         buffer: 10,
         scriptDelay: 3000
       })
       const duration = Date.now() - startTime
-      
+
       expect(result.elements.count).toBe(1)
       expect(duration).toBeGreaterThanOrEqual(3000)
       expect(duration).toBeLessThan(5000) // Allow some overhead for processing

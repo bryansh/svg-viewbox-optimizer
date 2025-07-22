@@ -19,19 +19,19 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
   }
 
   // Separate animations into categories
-  const geometricAnimations = animations.filter(anim => 
+  const geometricAnimations = animations.filter(anim =>
     (anim.type === 'animate' && ['x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry'].includes(anim.attributeName)) ||
     (anim.type === 'set' && ['x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry'].includes(anim.attributeName)) ||
     anim.type === 'animateTransform' ||
     anim.type === 'animateMotion'
   )
-  
+
   const strokeAnimations = animations.filter(anim =>
     (anim.type === 'animate' && anim.attributeName === 'stroke-width') ||
     (anim.type === 'set' && anim.attributeName === 'stroke-width')
   )
-  
-  const otherAnimations = animations.filter(anim => 
+
+  const otherAnimations = animations.filter(anim =>
     !geometricAnimations.includes(anim) && !strokeAnimations.includes(anim)
   )
 
@@ -49,8 +49,8 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
   )
 
   // Check if we have circle/ellipse animations that need special envelope handling
-  const hasCircleAnimations = nonAdditiveGeometricAnimations.some(anim => 
-    (anim.type === 'animate' || anim.type === 'set') && 
+  const hasCircleAnimations = nonAdditiveGeometricAnimations.some(anim =>
+    (anim.type === 'animate' || anim.type === 'set') &&
     ['cx', 'cy', 'r', 'rx', 'ry'].includes(anim.attributeName)
   )
 
@@ -59,7 +59,7 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
     const geometricState = {
       cx: [baseBounds.x + baseBounds.width / 2], // default center
       cy: [baseBounds.y + baseBounds.height / 2],
-      r: [baseBounds.width / 2], // assuming circle
+      r: [baseBounds.width / 2] // assuming circle
     }
 
     // Collect all possible values for circle/ellipse properties
@@ -83,7 +83,7 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
     const cxValues = [...new Set(geometricState.cx)]
     const cyValues = [...new Set(geometricState.cy)]
     const rValues = [...new Set(geometricState.r)]
-    
+
     if (debug) {
       console.log(`    Circle envelope: cx=${cxValues}, cy=${cyValues}, r=${rValues}`)
     }
@@ -93,7 +93,6 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
     const maxCx = Math.max(...cxValues)
     const minCy = Math.min(...cyValues)
     const maxCy = Math.max(...cyValues)
-    const minR = Math.min(...rValues)
     const maxR = Math.max(...rValues)
 
     // Calculate envelope using extreme combinations
@@ -153,7 +152,7 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
       width: globalMaxX - globalMinX,
       height: globalMaxY - globalMinY
     }
-    
+
     if (debug) {
       console.log(`    Intermediate geometric bounds: (${geometricBounds.x}, ${geometricBounds.y}) ${geometricBounds.width}x${geometricBounds.height}`)
     }
@@ -161,10 +160,11 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
 
   // Now apply stroke-width animations to the geometric bounds
   strokeAnimations.forEach(anim => {
-    const strokeValue = anim.type === 'set' ? parseFloat(anim.to) : 
-                       Math.max(...anim.values.map(v => v.value))
+    const strokeValue = anim.type === 'set'
+      ? parseFloat(anim.to)
+      : Math.max(...anim.values.map(v => v.value))
     const halfStroke = strokeValue / 2
-    
+
     // Apply stroke expansion to the geometric bounds
     const strokeExpandedBounds = {
       x: geometricBounds.x - halfStroke,
@@ -172,11 +172,11 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
       width: geometricBounds.width + strokeValue,
       height: geometricBounds.height + strokeValue
     }
-    
+
     if (debug) {
       console.log(`    Stroke animation ${anim.type}(${anim.attributeName}) value=${strokeValue}, expanded geometric bounds: (${strokeExpandedBounds.x}, ${strokeExpandedBounds.y}) ${strokeExpandedBounds.width}x${strokeExpandedBounds.height}`)
     }
-    
+
     updateGlobalBounds(strokeExpandedBounds)
   })
 
@@ -291,7 +291,7 @@ function calculateSingleAnimationBounds (anim, baseBounds, debug = false) {
     // Handle set animations - they set a single value at a specific time
     const adjustedBounds = { ...baseBounds }
     const toValue = parseFloat(anim.to)
-    
+
     switch (anim.attributeName) {
       case 'x': adjustedBounds.x = toValue; break
       case 'y': adjustedBounds.y = toValue; break
@@ -331,7 +331,7 @@ function calculateSingleAnimationBounds (anim, baseBounds, debug = false) {
         // These don't affect geometric bounds
         break
     }
-    
+
     return adjustedBounds
   }
 

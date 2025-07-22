@@ -47,11 +47,11 @@ async function calculateOptimization (inputFile, options = {}) {
     const browserBundle = new BrowserBundle()
     const html = await browserBundle.buildHTML(svgContent)
 
-    await page.setContent(html, { 
+    await page.setContent(html, {
       waitUntil: 'networkidle0', // Wait for network requests to finish
       timeout: 10000 // 10 second timeout for content loading
     })
-    
+
     // Wait for script-generated content if configured
     if (scriptDelay > 0) {
       if (options.debug) {
@@ -72,13 +72,13 @@ async function calculateOptimization (inputFile, options = {}) {
           if (debug) {
             console.log('Waiting for fonts to load...')
           }
-          
+
           // Add a timeout to prevent hanging on slow font loads
           const fontLoadPromise = document.fonts.ready
           const timeoutPromise = new Promise((resolve, reject) => {
             setTimeout(() => {
               if (failOnTimeout) {
-                reject(new Error(`Font loading timeout: Web fonts took longer than ${fontTimeoutMs/1000} seconds to load. This could result in inaccurate text bounds.`))
+                reject(new Error(`Font loading timeout: Web fonts took longer than ${fontTimeoutMs / 1000} seconds to load. This could result in inaccurate text bounds.`))
               } else {
                 if (debug) {
                   console.log('Font loading timeout reached, proceeding with fallback fonts')
@@ -87,7 +87,7 @@ async function calculateOptimization (inputFile, options = {}) {
               }
             }, fontTimeoutMs)
           })
-          
+
           await Promise.race([fontLoadPromise, timeoutPromise])
           if (debug) {
             console.log('Fonts loaded successfully')

@@ -154,18 +154,18 @@ window.SVGAnalyzer = (function () {
 
     // Combine regular elements with active switch elements
     const allElementsToProcess = []
-    
+
     // Add regular visual elements (with conditional filtering)
     visualElements.forEach(element => {
       // Check visibility
       if (!window.VisibilityChecker.shouldIncludeElement(element, svg, debug)) return
-      
+
       // Check conditional attributes (requiredFeatures, etc.) and switch membership
       if (window.SwitchEvaluator && !window.SwitchEvaluator.shouldIncludeElement(element, debug)) return
-      
+
       allElementsToProcess.push(element)
     })
-    
+
     // Add active elements from switch evaluation
     activeElementsFromSwitches.forEach(element => {
       // These are already conditionally selected, but still check visibility
@@ -175,7 +175,6 @@ window.SVGAnalyzer = (function () {
     })
 
     allElementsToProcess.forEach(element => {
-
       const tagName = element.tagName.toLowerCase()
 
       // Handle nested SVG elements specially
@@ -378,7 +377,7 @@ window.SVGAnalyzer = (function () {
                 adjustedBounds.height = valueFrame.value * 2
                 adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - valueFrame.value
                 break
-              case 'stroke-width':
+              case 'stroke-width': {
                 // Stroke extends bounds outward by half stroke width on all sides
                 const strokeWidth = valueFrame.value
                 const halfStroke = strokeWidth / 2
@@ -387,6 +386,7 @@ window.SVGAnalyzer = (function () {
                 adjustedBounds.width += strokeWidth
                 adjustedBounds.height += strokeWidth
                 break
+              }
               case 'opacity':
               case 'fill-opacity':
               case 'stroke-opacity':
@@ -439,7 +439,7 @@ window.SVGAnalyzer = (function () {
           updateGlobalBounds(expandedBounds)
         } else if (animation.type === 'set') {
           // Process set animations - they set a single value at a specific time
-          let adjustedBounds = { ...baseBounds }
+          const adjustedBounds = { ...baseBounds }
 
           // Handle different attribute types (same logic as animate)
           switch (animation.attributeName) {
@@ -461,24 +461,27 @@ window.SVGAnalyzer = (function () {
             case 'cy':
               adjustedBounds.y = parseFloat(animation.to) - (baseBounds.height / 2)
               break
-            case 'r':
+            case 'r': {
               const radius = parseFloat(animation.to)
               adjustedBounds.width = radius * 2
               adjustedBounds.height = radius * 2
               adjustedBounds.x = baseBounds.x + baseBounds.width / 2 - radius
               adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - radius
               break
-            case 'rx':
+            }
+            case 'rx': {
               const rxRadius = parseFloat(animation.to)
               adjustedBounds.width = rxRadius * 2
               adjustedBounds.x = baseBounds.x + baseBounds.width / 2 - rxRadius
               break
-            case 'ry':
+            }
+            case 'ry': {
               const ryRadius = parseFloat(animation.to)
               adjustedBounds.height = ryRadius * 2
               adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - ryRadius
               break
-            case 'stroke-width':
+            }
+            case 'stroke-width': {
               const setStrokeWidth = parseFloat(animation.to)
               const setHalfStroke = setStrokeWidth / 2
               adjustedBounds.x -= setHalfStroke
@@ -486,6 +489,7 @@ window.SVGAnalyzer = (function () {
               adjustedBounds.width += setStrokeWidth
               adjustedBounds.height += setStrokeWidth
               break
+            }
             case 'opacity':
             case 'fill-opacity':
             case 'stroke-opacity':

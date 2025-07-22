@@ -17,15 +17,15 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include all positions from cx animation: 100, 200, 150
         // Circle bounds: r=30, so cx values create bounds from (70,70) to (230,130)
         // With buffer: (60,60) to (240,140)
         expect(result.elements.count).toBe(1)
-        expect(result.newViewBox.x).toBe(60)  // min(100,200,150) - 30 - 10
-        expect(result.newViewBox.y).toBe(60)  // cy=100 - r=30 - buffer=10
+        expect(result.newViewBox.x).toBe(60) // min(100,200,150) - 30 - 10
+        expect(result.newViewBox.y).toBe(60) // cy=100 - r=30 - buffer=10
         expect(result.newViewBox.width).toBe(180) // (max_cx + r + buffer) - min_x = (200+30+10) - 60
-        expect(result.newViewBox.height).toBe(80)  // (cy + r + buffer) - min_y = (100+30+10) - 60
+        expect(result.newViewBox.height).toBe(80) // (cy + r + buffer) - min_y = (100+30+10) - 60
       } finally {
         fs.unlinkSync(tempFile)
       }
@@ -44,12 +44,12 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include all radius values: 20, 50, 30
         // Max radius is 50, so bounds are (150-50, 150-50) to (150+50, 150+50)
         // With buffer: (90, 90) to (210, 210)
         expect(result.elements.count).toBe(1)
-        expect(result.newViewBox.x).toBe(90)  // 150 - 50 - 10
+        expect(result.newViewBox.x).toBe(90) // 150 - 50 - 10
         expect(result.newViewBox.y).toBe(90)
         expect(result.newViewBox.width).toBe(120) // 210 - 90
         expect(result.newViewBox.height).toBe(120)
@@ -71,16 +71,16 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Max stroke-width is 20, so extends bounds by 10 on each side
         // Base rect: (100,100) to (160,140)
-        // With max stroke: (90,90) to (170,150)  
+        // With max stroke: (90,90) to (170,150)
         // With buffer: (80,80) to (180,160)
         expect(result.elements.count).toBe(1)
-        expect(result.newViewBox.x).toBe(80)  // 100 - 10 (half max stroke) - 10 (buffer)
+        expect(result.newViewBox.x).toBe(80) // 100 - 10 (half max stroke) - 10 (buffer)
         expect(result.newViewBox.y).toBe(80)
         expect(result.newViewBox.width).toBe(100) // 180 - 80
-        expect(result.newViewBox.height).toBe(80)  // 160 - 80
+        expect(result.newViewBox.height).toBe(80) // 160 - 80
       } finally {
         fs.unlinkSync(tempFile)
       }
@@ -99,7 +99,7 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Opacity animations don't affect geometric bounds
         // Base rect: (50,50) to (130,130), with buffer: (40,40) to (140,140)
         expect(result.elements.count).toBe(1)
@@ -128,7 +128,7 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Conservative approach: include both elements since click could happen or not
         // Combined bounds: (50,50) to (260,260), with buffer: (40,40) to (270,270)
         expect(result.elements.count).toBe(2)
@@ -155,7 +155,7 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Conservative: include both since mouseover event could make red rect visible
         expect(result.elements.count).toBe(2)
         expect(result.newViewBox.x).toBe(40)
@@ -182,14 +182,14 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should consider both original position (100,100) and set position (200,100)
         // Combined bounds: (100,100) to (260,160), with buffer: (90,90) to (270,170)
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(90)
         expect(result.newViewBox.y).toBe(90)
         expect(result.newViewBox.width).toBe(180) // 270 - 90
-        expect(result.newViewBox.height).toBe(80)  // 170 - 90
+        expect(result.newViewBox.height).toBe(80) // 170 - 90
       } finally {
         fs.unlinkSync(tempFile)
       }
@@ -208,10 +208,10 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should consider both stroke-width values: 2 and 16
         // Max stroke extends bounds by 8 (half of 16) on each side
-        // Base rect: (100,100) to (160,160) 
+        // Base rect: (100,100) to (160,160)
         // With max stroke: (92,92) to (168,168)
         // With buffer: (82,82) to (178,178)
         expect(result.elements.count).toBe(1)
@@ -239,14 +239,14 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include all x positions: 50, 150, 100
         // Bounds: (50,50) to (210,110), with buffer: (40,40) to (220,120)
         expect(result.elements.count).toBe(1)
-        expect(result.newViewBox.x).toBe(40)  // min(50,150,100) - 10
-        expect(result.newViewBox.y).toBe(40)  // 50 - 10
+        expect(result.newViewBox.x).toBe(40) // min(50,150,100) - 10
+        expect(result.newViewBox.y).toBe(40) // 50 - 10
         expect(result.newViewBox.width).toBe(180) // (max_x + width + buffer) - min_x = (150+60+10) - 40
-        expect(result.newViewBox.height).toBe(80)  // (y + height + buffer) - min_y = (50+60+10) - 40
+        expect(result.newViewBox.height).toBe(80) // (y + height + buffer) - min_y = (50+60+10) - 40
       } finally {
         fs.unlinkSync(tempFile)
       }
@@ -269,16 +269,16 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should consider:
         // - cx animation: 100 to 200
-        // - r animation: 20 to 40  
+        // - r animation: 20 to 40
         // - stroke-width set: 2 to 10 (max stroke extends by 5)
         // Max bounds: cx=200, r=40, stroke=5 -> (200-40-5, 100-40-5) to (200+40+5, 100+40+5)
         // = (155, 55) to (245, 145), with buffer: (145, 45) to (255, 155)
         expect(result.elements.count).toBe(1)
-        expect(result.newViewBox.x).toBe(45)   // min(100,200) - max_r - max_half_stroke - buffer = 100-40-5-10
-        expect(result.newViewBox.y).toBe(45)   // cy - max_r - max_half_stroke - buffer = 100-40-5-10  
+        expect(result.newViewBox.x).toBe(45) // min(100,200) - max_r - max_half_stroke - buffer = 100-40-5-10
+        expect(result.newViewBox.y).toBe(45) // cy - max_r - max_half_stroke - buffer = 100-40-5-10
         expect(result.newViewBox.width).toBe(210) // (max_cx + max_r + max_half_stroke + buffer) - min_x = (200+40+5+10) - 45
         expect(result.newViewBox.height).toBe(110) // (cy + max_r + max_half_stroke + buffer) - min_y = (100+40+5+10) - 45
       } finally {
@@ -300,7 +300,7 @@ describe('SMIL Phase 2 Animation Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should consider:
         // - x animation: 50 to 100
         // - y set on click: could be 50 (original) or 150 (after click)
@@ -308,7 +308,7 @@ describe('SMIL Phase 2 Animation Support', () => {
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(40)
         expect(result.newViewBox.y).toBe(40)
-        expect(result.newViewBox.width).toBe(130) // 170 - 40  
+        expect(result.newViewBox.width).toBe(130) // 170 - 40
         expect(result.newViewBox.height).toBe(180) // 220 - 40
       } finally {
         fs.unlinkSync(tempFile)

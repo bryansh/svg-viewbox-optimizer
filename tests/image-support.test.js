@@ -16,7 +16,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include both rect (50,50) to (110,110) and image (100,100) to (180,160)
         // Combined bounds: (50,50) to (180,160), with buffer: (40,40) to (190,170)
         expect(result.elements.count).toBe(2)
@@ -40,7 +40,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Image bounds: (50,50) to (150,130), with buffer: (40,40) to (160,140)
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(40)
@@ -64,7 +64,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Image bounds: (75,75) to (125,125), with buffer: (65,65) to (135,135)
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(65)
@@ -89,7 +89,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Image at (0,0) with size 60x40, with buffer: (-10,-10) to (70,50)
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(-10)
@@ -113,7 +113,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should only include the rect, image without dimensions is skipped
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(40)
@@ -138,7 +138,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should only include the rect, zero-dimension images are skipped
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(40)
@@ -165,7 +165,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should only include the visible rect, hidden images are excluded
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(40)
@@ -189,7 +189,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Base image: (0,0) to (50,50)
         // After translate(100,100) scale(2): (100,100) to (200,200)
         // With buffer: (90,90) to (210,210)
@@ -216,7 +216,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Image bounds: (50,50) to (130,110), with buffer: (40,40) to (140,120)
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBe(40)
@@ -245,7 +245,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include all visible elements
         // Background image dominates: (0,0) to (500,400)
         // With buffer: (-10,-10) to (510,410)
@@ -271,7 +271,7 @@ describe('SVG Image Element Support', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Image bounds: (50,50) to (150,150), with buffer: (40,40) to (160,160)
         // preserveAspectRatio affects rendering but not geometric bounds
         expect(result.elements.count).toBe(1)

@@ -126,9 +126,9 @@ function parseAnimationTiming (element) {
 
   // Check if begin is event-based (click, mouseover, etc.) or time-based
   const isEventBased = begin && !/^-?\d*\.?\d+(s|ms)?$/.test(begin)
-  
+
   // Check for syncbase timing (elementId.begin or elementId.end)
-  const syncbaseMatch = begin && begin.match(/^([a-zA-Z][\w\-]*)\.(begin|end)(?:\+(.*))?$/)
+  const syncbaseMatch = begin && begin.match(/^([a-zA-Z][\w-]*)\.(begin|end)(?:\+(.*))?$/)
   const isSyncbase = !!syncbaseMatch
 
   return {
@@ -175,10 +175,10 @@ function parseKeyframes (element) {
       // 'by' is relative to 'from', so we need to calculate the end value
       const fromValue = parseValueByType(from, animationType, transformType, attributeName)
       const byValue = parseValueByType(by, animationType, transformType, attributeName)
-      
+
       // Calculate the end value based on the type
       let toValue
-      if (fromValue.type === 'attribute' && typeof fromValue.value === 'number' && 
+      if (fromValue.type === 'attribute' && typeof fromValue.value === 'number' &&
           byValue.type === 'attribute' && typeof byValue.value === 'number') {
         // For numeric attributes, add the values
         toValue = {
@@ -212,7 +212,7 @@ function parseKeyframes (element) {
         // For other types, fall back to using 'by' as absolute value
         toValue = byValue
       }
-      
+
       return [
         { time: 0, value: fromValue },
         { time: 1, value: toValue }
@@ -221,7 +221,7 @@ function parseKeyframes (element) {
       // Only 'by' is specified - this is relative to current value
       // For conservative bounds calculation, we'll consider both no change and the by offset
       const byValue = parseValueByType(by, animationType, transformType, attributeName)
-      
+
       // Create identity/zero start value and offset end value
       let fromValue, toValue
       if (byValue.type === 'attribute') {
@@ -249,7 +249,7 @@ function parseKeyframes (element) {
         fromValue = { type: 'attribute', attribute: attributeName, value: 0 }
         toValue = byValue
       }
-      
+
       return [
         { time: 0, value: fromValue },
         { time: 1, value: toValue }
@@ -298,7 +298,7 @@ function parseValueByType (valueString, animationType, transformType, attributeN
 function calculatePacedKeyTimes (numValues) {
   if (numValues <= 1) return [0]
   if (numValues === 2) return [0, 1]
-  
+
   // For Phase 2: Simple approximation using equal distance assumption
   // Real paced mode would need the actual values to calculate distances
   // For now, return linear distribution as conservative fallback
@@ -408,12 +408,12 @@ function analyzeSet (animElement, debug = false) {
     'opacity', 'display', 'visibility',
     // Geometric attributes
     'x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry',
-    // Stroke/fill attributes  
+    // Stroke/fill attributes
     'fill', 'stroke', 'stroke-width', 'fill-opacity', 'stroke-opacity',
     // Transform attributes (basic support)
     'transform'
   ]
-  
+
   if (!supportedAttributes.includes(attributeName)) {
     if (debug) {
       console.log(`    Set: skipping unsupported attribute ${attributeName}`)
@@ -436,35 +436,34 @@ function analyzeSet (animElement, debug = false) {
       }
     } else {
       // Phase 2: Handle basic event-based timing
-      const basicEvents = ['click', 'mouseover', 'mouseout', 'mouseenter', 'mouseleave', 'focus', 'blur']
       const eventMatch = beginStr.match(/^(click|mouseover|mouseout|mouseenter|mouseleave|focus|blur)(\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
-      
+
       if (eventMatch) {
         isEventBased = true
         beginTime = 0 // Conservative: assume event could happen immediately
-        
+
         // Handle offset timing like "click+0.5s"
         if (eventMatch[3]) {
           const offsetTime = parseFloat(eventMatch[3])
           beginTime = eventMatch[4] === 'ms' ? offsetTime / 1000 : offsetTime
         }
-        
+
         if (debug) {
           console.log(`    Set: handling event-based timing ${beginStr} as conservative fallback`)
         }
       } else {
         // Phase 3: Check for syncbase timing
-        const syncbaseMatch = beginStr.match(/^([a-zA-Z][\w\-]*)\.(begin|end)(?:\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
+        const syncbaseMatch = beginStr.match(/^([a-zA-Z][\w-]*)\.(begin|end)(?:\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
         if (syncbaseMatch) {
           isEventBased = true // Treat syncbase similar to events for conservative handling
           beginTime = 0 // Conservative: assume the referenced animation could start immediately
-          
+
           // Handle offset timing like "anim1.end+0.5s"
           if (syncbaseMatch[3]) {
             const offsetTime = parseFloat(syncbaseMatch[3])
             beginTime = syncbaseMatch[4] === 'ms' ? offsetTime / 1000 : offsetTime
           }
-          
+
           if (debug) {
             console.log(`    Set: handling syncbase timing ${beginStr} as conservative fallback`)
           }
@@ -716,7 +715,7 @@ function calculateAnimatedBounds (element, baseMatrix, baseBounds, animations, d
             adjustedBounds.height = valueFrame.value * 2
             adjustedBounds.y = baseBounds.y + baseBounds.height / 2 - valueFrame.value
             break
-          case 'stroke-width':
+          case 'stroke-width': {
             // Stroke extends bounds outward by half stroke width on all sides
             const strokeWidth = valueFrame.value
             const halfStroke = strokeWidth / 2
@@ -725,10 +724,11 @@ function calculateAnimatedBounds (element, baseMatrix, baseBounds, animations, d
             adjustedBounds.width += strokeWidth
             adjustedBounds.height += strokeWidth
             break
+          }
           case 'opacity':
           case 'fill-opacity':
           case 'stroke-opacity':
-            // Opacity animations don't affect geometric bounds, 
+            // Opacity animations don't affect geometric bounds,
             // but we track them for visibility calculations
             // The bounds remain the same as base bounds
             break

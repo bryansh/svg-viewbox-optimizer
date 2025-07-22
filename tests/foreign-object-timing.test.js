@@ -4,7 +4,7 @@ const { calculateOptimization } = require('../viewbox-calculator')
 
 describe('ForeignObject HTML Layout Timing', () => {
   let tempFiles = []
-  
+
   afterEach(() => {
     // Clean up temporary files
     tempFiles.forEach(file => {
@@ -53,12 +53,12 @@ describe('ForeignObject HTML Layout Timing', () => {
 </svg>`
 
       const tempFile = createTempFile(complexHtmlSvg)
-      const result = await calculateOptimization(tempFile, { 
-        buffer: 10, 
+      const result = await calculateOptimization(tempFile, {
+        buffer: 10,
         // Add longer timeout for HTML layout
         browserTimeout: 10000,
         // Enable debug to see timing
-        debug: false 
+        debug: false
       })
 
       // Should detect actual HTML content size (which may be larger than declared)
@@ -81,9 +81,9 @@ describe('ForeignObject HTML Layout Timing', () => {
 </svg>`
 
       const tempFile = createTempFile(imageHtmlSvg)
-      const result = await calculateOptimization(tempFile, { 
+      const result = await calculateOptimization(tempFile, {
         buffer: 10,
-        browserTimeout: 8000  // Give time for image to load
+        browserTimeout: 8000 // Give time for image to load
       })
 
       // Should handle the foreign object despite embedded images
@@ -136,9 +136,9 @@ describe('ForeignObject HTML Layout Timing', () => {
 </svg>`
 
       const tempFile = createTempFile(cssLayoutSvg)
-      const result = await calculateOptimization(tempFile, { 
+      const result = await calculateOptimization(tempFile, {
         buffer: 10,
-        browserTimeout: 6000  // Give time for CSS to apply
+        browserTimeout: 6000 // Give time for CSS to apply
       })
 
       // Should detect actual layout dimensions (may be larger than declared)
@@ -175,13 +175,13 @@ describe('ForeignObject HTML Layout Timing', () => {
 </svg>`
 
       const tempFile = createTempFile(webFontSvg)
-      const result = await calculateOptimization(tempFile, { 
+      const result = await calculateOptimization(tempFile, {
         buffer: 10,
-        browserTimeout: 12000,  // Extended timeout for font loading
-        fontTimeoutMs: 8000     // Also set font-specific timeout
+        browserTimeout: 12000, // Extended timeout for font loading
+        fontTimeoutMs: 8000 // Also set font-specific timeout
       })
 
-      // Should handle web font loading within foreignObject  
+      // Should handle web font loading within foreignObject
       expect(result.elements.count).toBe(1)
       expect(result.content.width).toBeGreaterThanOrEqual(250) // At least declared width
       expect(result.content.height).toBeGreaterThanOrEqual(150) // At least declared height

@@ -15,7 +15,7 @@ describe('SVG Text Elements with Web Fonts', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Text should be included in bounds calculation
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.x).toBeLessThan(50) // Text extends before x=50
@@ -44,7 +44,7 @@ describe('SVG Text Elements with Web Fonts', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Web font text should be included
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.width).toBeGreaterThan(100) // Substantial text width
@@ -71,7 +71,7 @@ describe('SVG Text Elements with Web Fonts', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Both text elements should be included
         expect(result.elements.count).toBe(2)
         expect(result.newViewBox.width).toBeGreaterThan(150)
@@ -106,7 +106,7 @@ describe('SVG Text Elements with Web Fonts', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Text should be included even if custom font fails to load
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.width).toBeGreaterThan(80) // Fallback font should still render
@@ -127,7 +127,7 @@ describe('SVG Text Elements with Web Fonts', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should fall back to Arial and work correctly
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.width).toBeGreaterThan(70)
@@ -158,7 +158,7 @@ describe('SVG Text Elements with Web Fonts', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Should include animated text bounds
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.width).toBeGreaterThan(200) // Animation extends text position
@@ -187,7 +187,7 @@ describe('SVG Text Elements with Web Fonts', () => {
 
       try {
         const result = await calculateOptimization(tempFile, { buffer: 10 })
-        
+
         // Transformed text should be included with expanded bounds
         expect(result.elements.count).toBe(1)
         expect(result.newViewBox.width).toBeGreaterThan(50)
@@ -223,12 +223,12 @@ describe('SVG Text Elements with Web Fonts', () => {
         const startTime = Date.now()
         const result = await calculateOptimization(tempFile, { buffer: 10 })
         const endTime = Date.now()
-        
+
         // All text elements should be included
         expect(result.elements.count).toBe(4)
         expect(result.newViewBox.width).toBeGreaterThan(200)
         expect(result.newViewBox.height).toBeGreaterThan(150)
-        
+
         // Should complete in reasonable time (even with font loading)
         expect(endTime - startTime).toBeLessThan(15000) // 15 second max
       } finally {

@@ -19,12 +19,12 @@ window.BoundsCalculator = (function () {
 
     // Check if element is inside a switch element
     const isInsideSwitch = isElementInsideSwitch(element)
-    
+
     // Handle foreignObject elements with special HTML layout timing handling
     if (tagName === 'foreignobject') {
       return getForeignObjectBounds(element, debug)
     }
-    
+
     // Handle elements that don't support getBBox or need special processing
     if (tagName === 'svg' || !element.getBBox || isInsideSwitch) {
       return getElementBoundsFromAttributes(element, tagName, debug)
@@ -343,7 +343,7 @@ window.BoundsCalculator = (function () {
     // Try to measure actual HTML content bounds
     try {
       const actualBounds = measureForeignObjectContent(element, debug)
-      
+
       if (actualBounds) {
         // Use the larger of declared vs actual dimensions to ensure no clipping
         const finalBounds = {
@@ -362,7 +362,7 @@ window.BoundsCalculator = (function () {
       }
     } catch (e) {
       if (debug) {
-        console.log(`  Failed to measure foreignObject content:`, e.message)
+        console.log('  Failed to measure foreignObject content:', e.message)
       }
     }
 
@@ -387,7 +387,7 @@ window.BoundsCalculator = (function () {
       const htmlContent = foreignObject.querySelector('*')
       if (!htmlContent) {
         if (debug) {
-          console.log(`    No HTML content found in foreignObject`)
+          console.log('    No HTML content found in foreignObject')
         }
         return null
       }
@@ -395,10 +395,10 @@ window.BoundsCalculator = (function () {
       // Check if content contains elements that might need loading time
       const hasImages = htmlContent.querySelector('img') !== null
       const hasLinks = htmlContent.querySelector('link[rel="stylesheet"], style') !== null
-      
+
       if (hasImages || hasLinks) {
         if (debug) {
-          console.log(`    ForeignObject contains images/styles that may need loading time`)
+          console.log('    ForeignObject contains images/styles that may need loading time')
         }
       }
 
@@ -417,7 +417,7 @@ window.BoundsCalculator = (function () {
       if (svgElement) {
         const svgRect = svgElement.getBoundingClientRect()
         const svgViewBox = svgElement.getAttribute('viewBox')
-        
+
         if (svgViewBox) {
           const [, , vbWidth, vbHeight] = svgViewBox.split(' ').map(Number)
           const scaleX = vbWidth / svgRect.width
@@ -442,10 +442,9 @@ window.BoundsCalculator = (function () {
         width: contentRect.width,
         height: contentRect.height
       }
-
     } catch (e) {
       if (debug) {
-        console.log(`    Error measuring foreignObject content:`, e.message)
+        console.log('    Error measuring foreignObject content:', e.message)
       }
       return null
     }
@@ -484,11 +483,11 @@ window.BoundsCalculator = (function () {
         const y = parseFloat(element.getAttribute('y') || '0')
         const width = parseFloat(element.getAttribute('width') || '0')
         const height = parseFloat(element.getAttribute('height') || '0')
-        
+
         if (debug) {
           console.log(`  ${tagName} bounds from attributes: x=${x}, y=${y}, w=${width}, h=${height}`)
         }
-        
+
         return { x, y, width, height }
       }
 
@@ -496,11 +495,11 @@ window.BoundsCalculator = (function () {
         const cx = parseFloat(element.getAttribute('cx') || '0')
         const cy = parseFloat(element.getAttribute('cy') || '0')
         const r = parseFloat(element.getAttribute('r') || '0')
-        
+
         if (debug) {
           console.log(`  ${tagName} bounds from attributes: cx=${cx}, cy=${cy}, r=${r}`)
         }
-        
+
         return { x: cx - r, y: cy - r, width: r * 2, height: r * 2 }
       }
 
@@ -509,11 +508,11 @@ window.BoundsCalculator = (function () {
         const cy = parseFloat(element.getAttribute('cy') || '0')
         const rx = parseFloat(element.getAttribute('rx') || '0')
         const ry = parseFloat(element.getAttribute('ry') || '0')
-        
+
         if (debug) {
           console.log(`  ${tagName} bounds from attributes: cx=${cx}, cy=${cy}, rx=${rx}, ry=${ry}`)
         }
-        
+
         return { x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 }
       }
 
@@ -522,16 +521,16 @@ window.BoundsCalculator = (function () {
         const y1 = parseFloat(element.getAttribute('y1') || '0')
         const x2 = parseFloat(element.getAttribute('x2') || '0')
         const y2 = parseFloat(element.getAttribute('y2') || '0')
-        
+
         const x = Math.min(x1, x2)
         const y = Math.min(y1, y2)
         const width = Math.abs(x2 - x1)
         const height = Math.abs(y2 - y1)
-        
+
         if (debug) {
           console.log(`  ${tagName} bounds from attributes: x1=${x1}, y1=${y1}, x2=${x2}, y2=${y2}`)
         }
-        
+
         return { x, y, width, height }
       }
 
@@ -551,11 +550,11 @@ window.BoundsCalculator = (function () {
             }
           }
         }
-        
+
         if (debug) {
           console.log(`  ${tagName} no bounds available, returning zero`)
         }
-        
+
         return { x: 0, y: 0, width: 0, height: 0 }
       }
     }

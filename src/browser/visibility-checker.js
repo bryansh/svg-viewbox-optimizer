@@ -46,7 +46,7 @@ window.VisibilityChecker = (function () {
   function evaluateAnimatedVisibility (element, rootSvg, debug = false) {
     // Find all visibility-related animations for this element
     const animations = []
-    
+
     // Check direct child animations
     const childAnimations = element.querySelectorAll('set, animate')
     childAnimations.forEach(anim => {
@@ -82,7 +82,7 @@ window.VisibilityChecker = (function () {
 
     validAnimations.forEach(anim => {
       if (!anim || !anim.type) return // Skip null/invalid animations
-      
+
       if (anim.type === 'set') {
         // For event-based set animations, be more conservative
         // Element might be visible before the event triggers
@@ -144,8 +144,8 @@ window.VisibilityChecker = (function () {
     const beginStr = String(begin)
     const timeMatch = beginStr.match(/^(\d+(?:\.\d+)?)(s|ms)?$/)
     const eventMatch = beginStr.match(/^(click|mouseover|mouseout|mouseenter|mouseleave|focus|blur)(\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
-    const syncbaseMatch = beginStr.match(/^([a-zA-Z][\w\-]*)\.(begin|end)(?:\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
-    
+    const syncbaseMatch = beginStr.match(/^([a-zA-Z][\w-]*)\.(begin|end)(?:\+(\d+(?:\.\d+)?)(s|ms)?)?$/)
+
     if (!timeMatch && !eventMatch && !syncbaseMatch && beginStr !== '0s' && beginStr !== '0') {
       return null // Skip other complex timing (indefinite, etc.)
     }
@@ -165,7 +165,7 @@ window.VisibilityChecker = (function () {
       const values = animElement.getAttribute('values')
       const from = animElement.getAttribute('from')
       const to = animElement.getAttribute('to')
-      
+
       let parsedValues = []
       if (values) {
         parsedValues = values.split(';').map(v => v.trim())

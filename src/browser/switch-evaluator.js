@@ -5,7 +5,7 @@
  * based on requiredFeatures, requiredExtensions, and systemLanguage.
  */
 
-/* global navigator */
+/* global navigator, SVGElement */
 
 window.SwitchEvaluator = (function () {
   'use strict'
@@ -78,7 +78,7 @@ window.SwitchEvaluator = (function () {
     // Don't trust browser hasFeature for unknown/custom URIs
     // Many browsers return true for any URI that looks valid
     // Only use native hasFeature for well-known W3C SVG features
-    const isW3cSvgFeature = normalizedFeature.startsWith('http://www.w3.org/TR/SVG') || 
+    const isW3cSvgFeature = normalizedFeature.startsWith('http://www.w3.org/TR/SVG') ||
                            normalizedFeature.startsWith('org.w3c.svg') ||
                            normalizedFeature.startsWith('org.w3c.dom.svg')
 
@@ -122,7 +122,7 @@ window.SwitchEvaluator = (function () {
 
     return requiredLanguages.some(lang => {
       const langNormalized = lang.toLowerCase()
-      return userLanguage === langNormalized || 
+      return userLanguage === langNormalized ||
              userLanguageShort === langNormalized ||
              userLanguage.startsWith(langNormalized + '-')
     })
@@ -176,7 +176,7 @@ window.SwitchEvaluator = (function () {
     }
 
     const children = Array.from(switchElement.children)
-    
+
     if (debug) {
       console.log(`Evaluating switch element with ${children.length} children`)
     }
@@ -245,7 +245,7 @@ window.SwitchEvaluator = (function () {
 
     // Check conditional attributes on the element itself
     const shouldRender = shouldRenderElement(element)
-    
+
     if (debug && !shouldRender) {
       console.log(`Element ${element.tagName} excluded due to conditional attributes`)
     }
