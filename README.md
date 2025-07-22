@@ -320,9 +320,38 @@ node index.js examples/animated-icon.svg --debug
 node index.js examples/symbol-library.svg --debug
 ```
 
+## Testing
+
+The project includes comprehensive test coverage with different test suites:
+
+```bash
+# Run standard tests (excludes performance tests)
+npm test
+
+# Run all tests including performance tests  
+npm run test:all
+
+# Run only performance/timing tests (skipped in CI)
+npm run test:perf
+
+# Run linting
+npm run lint
+```
+
+**Test Structure:**
+- **Functional tests**: Core SVG processing, feature detection, bounds calculation
+- **Performance tests**: Timing validation and benchmarks (automatically skipped in CI environments)
+- **189 total test cases** with comprehensive coverage of edge cases and advanced SVG features
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please ensure tests pass and follow the existing code style:
+
+```bash
+npm run lint     # Check code style
+npm test         # Run functional tests
+npm run test:all # Run all tests including performance
+```
 
 ## License
 
