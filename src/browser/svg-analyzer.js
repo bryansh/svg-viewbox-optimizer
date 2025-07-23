@@ -177,6 +177,14 @@ window.SVGAnalyzer = (function () {
     allElementsToProcess.forEach(element => {
       const tagName = element.tagName.toLowerCase()
 
+      // Skip non-visual elements that don't contribute to bounds
+      if (tagName === 'view' || tagName === 'cursor') {
+        if (debug) {
+          console.log(`  Skipping non-visual element: ${tagName}`)
+        }
+        return
+      }
+
       // Handle nested SVG elements specially
       if (tagName === 'svg') {
         if (debug) {

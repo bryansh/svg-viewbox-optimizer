@@ -691,9 +691,12 @@ window.BoundsCalculator = (function () {
     let hasContent = false
 
     for (const child of symbolChildren) {
-      if (child.tagName.toLowerCase() === 'desc' ||
-          child.tagName.toLowerCase() === 'title' ||
-          child.tagName.toLowerCase() === 'metadata') {
+      const childTagName = child.tagName.toLowerCase()
+      if (childTagName === 'desc' ||
+          childTagName === 'title' ||
+          childTagName === 'metadata' ||
+          childTagName === 'view' ||
+          childTagName === 'cursor') {
         continue
       }
 
