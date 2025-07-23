@@ -258,7 +258,9 @@ describe('CSS Transform Support', () => {
         expect(result.content.minX).toBeCloseTo(40, 1)
         expect(result.content.maxX).toBeCloseTo(70, 1) // 40 + 30
       } finally {
-        fs.unlinkSync(tempFile)
+        if (fs.existsSync(tempFile)) {
+          fs.unlinkSync(tempFile)
+        }
       }
     })
 
