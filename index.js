@@ -10,7 +10,7 @@ const program = new Command()
 program
   .name('svg-optimize')
   .description('Optimize SVG viewBox to minimize whitespace around animated content')
-  .version('1.4.0')
+  .version('1.4.2')
   .argument('<input>', 'input SVG file')
   .option('-o, --output <file>', 'output file (default: input_optimized.svg)')
   .option('-b, --buffer <pixels>', 'buffer padding around content', '10')

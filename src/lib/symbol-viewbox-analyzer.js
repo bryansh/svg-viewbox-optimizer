@@ -14,24 +14,23 @@ class SymbolViewBoxAnalyzer {
    * @returns {Object} Symbol analysis with coordinate transformation
    */
   analyzeSymbolViewBox (useElement, symbolElement, boundsCalculator, debug = false) {
-    const useId = useElement.getAttribute('href') || useElement.getAttribute('xlink:href')
     const symbolId = symbolElement.getAttribute('id')
-    
+
     // Get use element positioning and sizing
     const useX = parseFloat(useElement.getAttribute('x')) || 0
     const useY = parseFloat(useElement.getAttribute('y')) || 0
     const useWidth = parseFloat(useElement.getAttribute('width')) || 0
     const useHeight = parseFloat(useElement.getAttribute('height')) || 0
-    
+
     // Get symbol viewBox and preserveAspectRatio
     const viewBox = symbolElement.getAttribute('viewBox')
     const preserveAspectRatio = symbolElement.getAttribute('preserveAspectRatio') || 'xMidYMid meet'
-    
+
     if (debug) {
       console.log(`Analyzing symbol viewBox: use(${useX},${useY},${useWidth},${useHeight}) -> symbol#${symbolId}`)
       console.log(`  Symbol viewBox: ${viewBox}, preserveAspectRatio: ${preserveAspectRatio}`)
     }
-    
+
     // If no viewBox on symbol, no coordinate transformation needed
     if (!viewBox) {
       return {
@@ -43,7 +42,7 @@ class SymbolViewBoxAnalyzer {
         transform: null
       }
     }
-    
+
     // Parse viewBox
     const viewBoxParts = viewBox.split(/\s+/).map(parseFloat)
     if (viewBoxParts.length !== 4) {
@@ -57,13 +56,13 @@ class SymbolViewBoxAnalyzer {
         transform: null
       }
     }
-    
+
     const [vbX, vbY, vbWidth, vbHeight] = viewBoxParts
-    
+
     // If use element doesn't specify dimensions, use symbol's intrinsic size
     const effectiveWidth = useWidth || vbWidth
     const effectiveHeight = useHeight || vbHeight
-    
+
     // Calculate coordinate transformation
     const transform = this.calculateSymbolTransform(
       effectiveWidth, effectiveHeight,
@@ -71,11 +70,11 @@ class SymbolViewBoxAnalyzer {
       preserveAspectRatio,
       debug
     )
-    
+
     if (debug) {
       console.log(`  Transform: scale=${transform.scaleX}, offset=(${transform.offsetX},${transform.offsetY})`)
     }
-    
+
     return {
       hasViewBox: true,
       useX,
@@ -87,11 +86,11 @@ class SymbolViewBoxAnalyzer {
       preserveAspectRatio
     }
   }
-  
+
   /**
    * Calculate coordinate transformation for symbol viewBox
    * @param {number} useWidth - Use element width
-   * @param {number} useHeight - Use element height  
+   * @param {number} useHeight - Use element height
    * @param {number} vbX - ViewBox x
    * @param {number} vbY - ViewBox y
    * @param {number} vbWidth - ViewBox width
@@ -103,7 +102,7 @@ class SymbolViewBoxAnalyzer {
   calculateSymbolTransform (useWidth, useHeight, vbX, vbY, vbWidth, vbHeight, preserveAspectRatio, debug = false) {
     // Parse preserveAspectRatio (reuse existing parser if available)
     const aspectRatio = this.parsePreserveAspectRatio(preserveAspectRatio)
-    
+
     // Handle "none" case - non-uniform scaling
     if (aspectRatio.align === 'none') {
       return {
@@ -115,11 +114,11 @@ class SymbolViewBoxAnalyzer {
         translateY: -vbY
       }
     }
-    
+
     // Calculate uniform scale factor
     const scaleX = useWidth / vbWidth
     const scaleY = useHeight / vbHeight
-    
+
     let scale
     if (aspectRatio.meetOrSlice === 'meet') {
       // "meet" - scale to fit entirely within viewport
@@ -128,18 +127,18 @@ class SymbolViewBoxAnalyzer {
       // "slice" - scale to fill entire viewport (content may be clipped)
       scale = Math.max(scaleX, scaleY)
     }
-    
+
     // Calculate scaled content dimensions
     const scaledWidth = vbWidth * scale
     const scaledHeight = vbHeight * scale
-    
+
     // Calculate alignment offset within use element
     let offsetX = 0
     let offsetY = 0
-    
+
     // Parse alignment
     const align = aspectRatio.align.toLowerCase()
-    
+
     // X alignment
     if (align.includes('xmin')) {
       offsetX = 0
@@ -148,8 +147,8 @@ class SymbolViewBoxAnalyzer {
     } else if (align.includes('xmax')) {
       offsetX = useWidth - scaledWidth
     }
-    
-    // Y alignment  
+
+    // Y alignment
     if (align.includes('ymin')) {
       offsetY = 0
     } else if (align.includes('ymid')) {
@@ -157,7 +156,7 @@ class SymbolViewBoxAnalyzer {
     } else if (align.includes('ymax')) {
       offsetY = useHeight - scaledHeight
     }
-    
+
     return {
       scaleX: scale,
       scaleY: scale,
@@ -167,7 +166,7 @@ class SymbolViewBoxAnalyzer {
       translateY: -vbY
     }
   }
-  
+
   /**
    * Parse preserveAspectRatio attribute
    * @param {string} preserveAspectRatio - The preserveAspectRatio attribute value
@@ -179,13 +178,13 @@ class SymbolViewBoxAnalyzer {
       align: 'xMidYMid',
       meetOrSlice: 'meet'
     }
-    
+
     if (!preserveAspectRatio || preserveAspectRatio.trim() === '') {
       return defaults
     }
-    
+
     const parts = preserveAspectRatio.trim().toLowerCase().split(/\s+/)
-    
+
     // Handle special case: "none"
     if (parts[0] === 'none') {
       return {
@@ -193,28 +192,28 @@ class SymbolViewBoxAnalyzer {
         meetOrSlice: 'meet' // meetOrSlice is ignored when align is "none"
       }
     }
-    
+
     // Parse alignment (first part)
     const validAlignments = [
       'xminymin', 'xmidymin', 'xmaxymin',
-      'xminymid', 'xmidymid', 'xmaxymid', 
+      'xminymid', 'xmidymid', 'xmaxymid',
       'xminymax', 'xmidymax', 'xmaxymax'
     ]
-    
+
     const result = { ...defaults }
-    
+
     if (parts[0] && validAlignments.includes(parts[0])) {
       result.align = parts[0]
     }
-    
+
     // Parse meetOrSlice (second part, if present)
     if (parts[1] && (parts[1] === 'meet' || parts[1] === 'slice')) {
       result.meetOrSlice = parts[1]
     }
-    
+
     return result
   }
-  
+
   /**
    * Transform element bounds using symbol coordinate system
    * @param {Object} elementBounds - Original element bounds within symbol
@@ -232,24 +231,24 @@ class SymbolViewBoxAnalyzer {
         height: elementBounds.height
       }
     }
-    
+
     const t = symbolAnalysis.transform
-    
+
     // Apply viewBox transformation:
     // 1. Translate by viewBox origin
-    // 2. Scale 
+    // 2. Scale
     // 3. Apply alignment offset
     // 4. Translate to use position
-    
+
     const transformedX = (elementBounds.x + t.translateX) * t.scaleX + t.offsetX + symbolAnalysis.useX
     const transformedY = (elementBounds.y + t.translateY) * t.scaleY + t.offsetY + symbolAnalysis.useY
     const transformedWidth = elementBounds.width * t.scaleX
     const transformedHeight = elementBounds.height * t.scaleY
-    
+
     if (debug) {
       console.log(`  Transformed bounds: (${elementBounds.x},${elementBounds.y},${elementBounds.width},${elementBounds.height}) -> (${transformedX},${transformedY},${transformedWidth},${transformedHeight})`)
     }
-    
+
     return {
       x: transformedX,
       y: transformedY,
@@ -257,7 +256,7 @@ class SymbolViewBoxAnalyzer {
       height: transformedHeight
     }
   }
-  
+
   /**
    * Get the symbol element referenced by a use element
    * @param {Element} useElement - The use element
@@ -269,12 +268,12 @@ class SymbolViewBoxAnalyzer {
     if (!href || !href.startsWith('#')) {
       return null
     }
-    
+
     const symbolId = href.substring(1)
     const referencedElement = doc.getElementById(symbolId)
-    
-    return referencedElement && referencedElement.tagName.toLowerCase() === 'symbol' 
-      ? referencedElement 
+
+    return referencedElement && referencedElement.tagName.toLowerCase() === 'symbol'
+      ? referencedElement
       : null
   }
 }

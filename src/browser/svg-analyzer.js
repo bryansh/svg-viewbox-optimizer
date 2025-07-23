@@ -506,6 +506,21 @@ window.SVGAnalyzer = (function () {
           }
 
           updateGlobalBounds(adjustedBounds)
+        } else if (animation.isCSSAnimation && animation.expansion) {
+          // Process CSS animation bounds expansion
+          const cssExpandedBounds = {
+            x: baseBounds.x + animation.expansion.x,
+            y: baseBounds.y + animation.expansion.y,
+            width: baseBounds.width + animation.expansion.width,
+            height: baseBounds.height + animation.expansion.height
+          }
+
+          if (debug) {
+            console.log(`    CSS animation '${animation.animationName}' bounds expansion: dx=${animation.expansion.x.toFixed(2)}, dy=${animation.expansion.y.toFixed(2)}, dw=${animation.expansion.width.toFixed(2)}, dh=${animation.expansion.height.toFixed(2)}`)
+            console.log(`    CSS animated bounds: x=${cssExpandedBounds.x.toFixed(2)}, y=${cssExpandedBounds.y.toFixed(2)}, w=${cssExpandedBounds.width.toFixed(2)}, h=${cssExpandedBounds.height.toFixed(2)}`)
+          }
+
+          updateGlobalBounds(cssExpandedBounds)
         }
       })
     }
@@ -724,22 +739,46 @@ window.SVGAnalyzer = (function () {
     }
 
     function analyzeElementAnimations (element, svg, debug) {
-      // Use the sophisticated animation analyzer that was injected
+      let animations = []
+
+      // Use the sophisticated SVG animation analyzer that was injected
       if (typeof window.findElementAnimations === 'function') {
-        return window.findElementAnimations(element, svg, debug)
+        animations = window.findElementAnimations(element, svg, debug)
+      } else {
+        // Fallback to simple SVG animation detection
+        const animationElements = element.querySelectorAll('animateTransform, animate, animateMotion')
+        animationElements.forEach(anim => {
+          if (anim.parentElement === element) {
+            animations.push({
+              type: anim.tagName.toLowerCase(),
+              element: anim
+            })
+          }
+        })
       }
 
-      // Fallback to simple animation detection
-      const animations = []
-      const animationElements = element.querySelectorAll('animateTransform, animate, animateMotion')
-      animationElements.forEach(anim => {
-        if (anim.parentElement === element) {
+      // Check for CSS animations using the CSS animation analyzer
+      if (typeof window.CSSAnimationAnalyzer === 'function') {
+        const cssAnimationAnalyzer = new window.CSSAnimationAnalyzer(document)
+
+        // Get element's base bounds for CSS animation analysis
+        const baseBounds = window.BoundsCalculator.getElementBounds(element, debug)
+
+        // Analyze CSS animations for this element
+        const cssAnimationResult = cssAnimationAnalyzer.analyzeElementAnimations(element, baseBounds, debug)
+
+        if (cssAnimationResult.hasAnimations) {
+          // Convert CSS animation result to match SVG animation format
           animations.push({
-            type: anim.tagName.toLowerCase(),
-            element: anim
+            type: 'css-animation',
+            animationName: cssAnimationResult.animationName,
+            keyframes: cssAnimationResult.keyframes,
+            expansion: cssAnimationResult.expansion,
+            isCSSAnimation: true
           })
         }
-      })
+      }
+
       return animations
     }
 

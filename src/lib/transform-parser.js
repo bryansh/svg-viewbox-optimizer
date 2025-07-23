@@ -222,7 +222,18 @@ function getElementTransform (element) {
   // which varies over time. Skip CSS transform checking for these elements.
   const hasAnimations = element.querySelector('animateTransform, animate, animateMotion') !== null
 
-  if (!hasAnimations) {
+  // Also check for CSS animations by looking at computed style
+  let hasCSSAnimations = false
+  try {
+    if (typeof getComputedStyle === 'function') {
+      const computed = getComputedStyle(element)
+      hasCSSAnimations = computed.animationName && computed.animationName !== 'none'
+    }
+  } catch (error) {
+    // Ignore errors accessing computed styles
+  }
+
+  if (!hasAnimations && !hasCSSAnimations) {
     // Check for CSS transform first (higher priority) - only for non-animated elements
     let cssTransform = null
 
@@ -249,7 +260,7 @@ function getElementTransform (element) {
     }
   }
 
-  // For animated elements or when no CSS transform, use SVG transform attribute
+  // For animated elements (SVG or CSS) or when no CSS transform, use SVG transform attribute
   const svgTransform = element.getAttribute('transform')
   if (svgTransform) {
     return parseTransform(svgTransform)

@@ -53,7 +53,8 @@ class BrowserBundle {
       this.loadAndProcessNodeModule('effects-analyzer.js'),
       this.loadAndProcessNodeModule('transform-parser.js'),
       this.loadAndProcessNodeModule('pattern-analyzer.js'),
-      this.loadAndProcessNodeModule('symbol-viewbox-analyzer.js')
+      this.loadAndProcessNodeModule('symbol-viewbox-analyzer.js'),
+      this.loadAndProcessNodeModule('css-animation-analyzer.js')
     ]
 
     return Promise.all(modulePromises)

@@ -649,7 +649,7 @@ window.BoundsCalculator = (function () {
 
     const analyzer = new window.SymbolViewBoxAnalyzer()
     const referencedSymbol = analyzer.getReferencedSymbol(useElement, document)
-    
+
     if (!referencedSymbol) {
       if (debug) {
         console.log('Use element does not reference a symbol, using getBBox')
@@ -691,7 +691,7 @@ window.BoundsCalculator = (function () {
     let hasContent = false
 
     for (const child of symbolChildren) {
-      if (child.tagName.toLowerCase() === 'desc' || 
+      if (child.tagName.toLowerCase() === 'desc' ||
           child.tagName.toLowerCase() === 'title' ||
           child.tagName.toLowerCase() === 'metadata') {
         continue
@@ -761,7 +761,7 @@ window.BoundsCalculator = (function () {
 
     const patternAnalyzer = new window.PatternAnalyzer()
     const patternElement = patternAnalyzer.getPatternFromFill(fillValue, document)
-    
+
     if (!patternElement) {
       return null
     }

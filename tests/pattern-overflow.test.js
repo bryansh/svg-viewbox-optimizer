@@ -114,8 +114,8 @@ describe('Pattern Overflow Support', () => {
         // - Circle extends 5px on all sides
         // - Rectangle extends 5px left
         // - Path extends 10px right and bottom
-        expect(result.content.minX).toBeCloseTo(95, 1)  // 100 - 5
-        expect(result.content.minY).toBeCloseTo(95, 1)  // 100 - 5
+        expect(result.content.minX).toBeCloseTo(95, 1) // 100 - 5
+        expect(result.content.minY).toBeCloseTo(95, 1) // 100 - 5
         expect(result.content.maxX).toBeCloseTo(190, 1) // 180 + 10
         expect(result.content.maxY).toBeCloseTo(190, 1) // 180 + 10
       } finally {

@@ -31,8 +31,12 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
     (anim.type === 'set' && anim.attributeName === 'stroke-width')
   )
 
+  const cssAnimations = animations.filter(anim =>
+    anim.type === 'css-animation' && anim.isCSSAnimation
+  )
+
   const otherAnimations = animations.filter(anim =>
-    !geometricAnimations.includes(anim) && !strokeAnimations.includes(anim)
+    !geometricAnimations.includes(anim) && !strokeAnimations.includes(anim) && !cssAnimations.includes(anim)
   )
 
   let globalMinX = Infinity
@@ -178,6 +182,25 @@ function combineOverlappingAnimations (animations, baseBounds, debug = false) {
     }
 
     updateGlobalBounds(strokeExpandedBounds)
+  })
+
+  // Handle CSS animations
+  cssAnimations.forEach(anim => {
+    if (anim.expansion) {
+      const cssExpandedBounds = {
+        x: baseBounds.x + anim.expansion.x,
+        y: baseBounds.y + anim.expansion.y,
+        width: baseBounds.width + anim.expansion.width,
+        height: baseBounds.height + anim.expansion.height
+      }
+
+      if (debug) {
+        console.log(`    CSS animation '${anim.animationName}' bounds expansion: dx=${anim.expansion.x.toFixed(2)}, dy=${anim.expansion.y.toFixed(2)}, dw=${anim.expansion.width.toFixed(2)}, dh=${anim.expansion.height.toFixed(2)}`)
+        console.log(`    CSS animation bounds: (${cssExpandedBounds.x}, ${cssExpandedBounds.y}) ${cssExpandedBounds.width}x${cssExpandedBounds.height}`)
+      }
+
+      updateGlobalBounds(cssExpandedBounds)
+    }
   })
 
   // Handle other animations

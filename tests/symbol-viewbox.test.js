@@ -145,8 +145,8 @@ describe('Symbol ViewBox Support', () => {
 
         // All elements should be transformed consistently
         // Symbol viewBox 0 0 100 100, use 120x120 at (50,50), scale = 1.2
-        expect(result.content.minX).toBeCloseTo(62, 1)  // (10*1.2+50)
-        expect(result.content.minY).toBeCloseTo(62, 1)  // (10*1.2+50)
+        expect(result.content.minX).toBeCloseTo(62, 1) // (10*1.2+50)
+        expect(result.content.minY).toBeCloseTo(62, 1) // (10*1.2+50)
         expect(result.content.maxX).toBeCloseTo(164, 1) // max of all transformed elements
         expect(result.content.maxY).toBeCloseTo(164, 1)
       } finally {
