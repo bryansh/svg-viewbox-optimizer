@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [1.4.2] - 2025-07-23
 
 ### Added
+- **CSS @keyframes Animation Support**:
+  - Full CSS animation parser that extracts @keyframes from both external stylesheets and inline styles
+  - Complete transform function support: translate, scale, rotate, skew, and matrix operations
+  - Animation direction handling: normal, reverse, alternate, alternate-reverse
+  - Transform-origin calculation with browser compatibility fixes for SVG elements
+  - Envelope-based bounds calculation for accurate animation bounds expansion
+  - Integration with existing SVG SMIL animation infrastructure
+  - Added comprehensive test suite with 11 test cases covering various CSS animation scenarios
+
 - **Symbol ViewBox Coordinate Transformations**:
   - Complete support for `<symbol>` elements with their own `viewBox` and `preserveAspectRatio` attributes
   - Accurate coordinate system transformations for `<use>` elements referencing symbols
@@ -14,10 +23,15 @@ All notable changes to this project will be documented in this file.
   - Added comprehensive test suite with 10 test cases covering various symbol scenarios
 
 ### Technical Details
+- Added `css-animation-analyzer.js` module for CSS animation parsing and bounds calculation
+- Enhanced `svg-analyzer.js` to detect and analyze CSS animations alongside SVG animations
+- Updated `animation-combiner.js` to handle CSS animations in bounds combination logic
+- Enhanced `transform-parser.js` to exclude CSS-animated elements from static transform analysis
 - Added `symbol-viewbox-analyzer.js` module for coordinate transformation analysis
 - Enhanced bounds calculator with dedicated `getUseElementBounds()` function
-- Integrated symbol analysis into browser bundle
-- Total test count increased from 196 to 206 tests
+- Integrated both CSS animation and symbol analysis into browser bundle
+- Fixed CLI version mismatch (updated from 1.4.0 to 1.4.2)
+- Total test count: 204 passing tests
 
 ## [1.4.1] - 2025-07-23
 

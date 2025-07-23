@@ -7,7 +7,7 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 ## Features
 
 - 🎯 **Precise bounds calculation** using browser's native `getBBox()` API with visual overflow detection
-- 🎬 **Animation-aware** - accounts for animated elements' motion paths
+- 🎬 **Animation-aware** - supports both SMIL and CSS @keyframes animations with accurate motion path calculation
 - 🔍 **Smart symbol handling** - correctly processes `<use>` elements with full viewBox coordinate transformation
 - 🔧 **Advanced transform support** - handles translate, scale, rotate, skew, and matrix transforms on ALL elements
 - 🎨 **Pattern visual bounds** - detects and includes pattern content that extends beyond pattern tiles
@@ -21,11 +21,12 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 
 ### Advanced Features (New!)
 
+- 🎨 **CSS @keyframes animation support** - Full CSS animation analysis with transform-origin handling and multi-keyframe bounds calculation
 - 🔀 **Switch element support** - Handles conditional rendering with `<switch>`, `requiredFeatures`, `requiredExtensions`, and `systemLanguage`
 - 🌐 **ForeignObject HTML layout** - Accurately measures HTML content inside `<foreignObject>` elements, accounting for overflow
 - ⏱️ **Script-generated content** - Configurable delay to capture dynamically added SVG elements via JavaScript
 - 🔤 **Web font synchronization** - Waits for web fonts to load before measuring text bounds
-- ✅ **100% test coverage** - comprehensive test suite with 206 passing tests
+- ✅ **100% test coverage** - comprehensive test suite with 204 passing tests
 
 ## Installation
 
