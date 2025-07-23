@@ -6,10 +6,11 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 
 ## Features
 
-- 🎯 **Precise bounds calculation** using browser's native `getBBox()` API
+- 🎯 **Precise bounds calculation** using browser's native `getBBox()` API with visual overflow detection
 - 🎬 **Animation-aware** - accounts for animated elements' motion paths
 - 🔍 **Smart symbol handling** - correctly processes `<use>` elements and nested symbols
 - 🔧 **Advanced transform support** - handles translate, scale, rotate, skew, and matrix transforms on ALL elements
+- 🎨 **Pattern visual bounds** - detects and includes pattern content that extends beyond pattern tiles
 - 🎭 **Generic container detection** - automatically identifies and processes container vs. content elements
 - 🧠 **Enhanced animation integration** - sophisticated browser-side animation processing with normalized value parsing
 - ✨ **Effects support** - handles filter, mask, and clipPath effects with accurate bounds expansion
@@ -24,7 +25,7 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 - 🌐 **ForeignObject HTML layout** - Accurately measures HTML content inside `<foreignObject>` elements, accounting for overflow
 - ⏱️ **Script-generated content** - Configurable delay to capture dynamically added SVG elements via JavaScript
 - 🔤 **Web font synchronization** - Waits for web fonts to load before measuring text bounds
-- ✅ **100% test coverage** - comprehensive test suite with 189 passing tests
+- ✅ **100% test coverage** - comprehensive test suite with 196 passing tests
 
 ## Installation
 
@@ -120,6 +121,23 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 - **Symbol chains** - Deeply nested symbol references with proper positioning
 - **Nested SVG** - Proper coordinate system transformations with recursive processing
 - **Markers** - Arrow heads and line decorations with accurate positioning
+- **Patterns** - Pattern fills with visual overflow detection
+
+### Pattern Visual Bounds Support
+
+- **Visual overflow detection** - Analyzes pattern content to detect elements that extend beyond pattern tile boundaries
+- **Automatic bounds expansion** - Expands element bounds to include pattern content that renders outside geometric bounds
+- **Complex pattern analysis** - Handles patterns with multiple shapes, transforms, and opacity
+- **Performance optimized** - Only analyzes patterns when needed, maintains fast processing
+
+Example: A pattern with a circle that extends beyond its tile will have its visual bounds properly calculated:
+```xml
+<pattern id="overflowPattern" width="20" height="20">
+  <!-- This circle extends 10px beyond the pattern tile -->
+  <circle cx="10" cy="10" r="20" fill="red"/>
+</pattern>
+<rect fill="url(#overflowPattern)" ... />
+```
 
 ### CSS and Styling Support
 
@@ -244,6 +262,7 @@ svg-viewbox-optimizer/
 │   │   ├── effects-analyzer.js # Filter, mask, clipPath effects analysis
 │   │   ├── animation-combiner.js # Overlapping animation combination
 │   │   ├── svg-path-parser.js # SVG path data parsing with Bezier math
+│   │   ├── pattern-analyzer.js # Pattern visual bounds analysis
 │   │   └── stylesheet-processor.js # External CSS inlining
 │   └── browser-bundle.js      # Module loader and browser compatibility
 └── index.js                   # CLI interface
@@ -297,6 +316,7 @@ npm test
 # ✅ Edge case handling tests
 # ✅ SVG path parser tests
 # ✅ Marker bounds calculation tests
+# ✅ Pattern overflow and visual bounds tests
 # ✅ preserveAspectRatio support tests
 # ✅ Event-triggered animation tests
 # ✅ External stylesheet tests
@@ -345,11 +365,11 @@ npm run lint
 ```
 
 **Test Structure:**
-- **Functional tests**: Core SVG processing, feature detection, bounds calculation (173 tests)
+- **Functional tests**: Core SVG processing, feature detection, bounds calculation, pattern overflow (183 tests)
 - **Web font tests**: Text rendering with external fonts (8 tests - excluded from CI)
 - **Foreign object timing tests**: HTML layout timing with external resources (excluded from CI)
 - **Performance tests**: Timing validation and benchmarks (excluded from CI)
-- **189 total test cases** with comprehensive coverage of edge cases and advanced SVG features
+- **196 total test cases** with comprehensive coverage of edge cases and advanced SVG features
 
 **Note**: Tests with external dependencies (Google Fonts) or timing sensitivities are excluded from CI to ensure reliable builds.
 

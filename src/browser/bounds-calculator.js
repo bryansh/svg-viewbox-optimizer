@@ -70,18 +70,27 @@ window.BoundsCalculator = (function () {
       }
     }
 
-    // For all other elements, use getBBox and account for markers
+    // For all other elements, use getBBox and account for markers and patterns
     try {
       const bbox = element.getBBox()
 
       // Check for markers and expand bounds accordingly
       const markerBounds = calculateMarkerBounds(element, bbox, debug)
 
-      const finalBounds = {
+      let finalBounds = {
         x: Math.min(bbox.x, markerBounds.minX),
         y: Math.min(bbox.y, markerBounds.minY),
         width: Math.max(bbox.x + bbox.width, markerBounds.maxX) - Math.min(bbox.x, markerBounds.minX),
         height: Math.max(bbox.y + bbox.height, markerBounds.maxY) - Math.min(bbox.y, markerBounds.minY)
+      }
+
+      // Check for pattern fill and expand bounds if needed
+      const fillValue = element.getAttribute('fill')
+      if (fillValue && fillValue.includes('url(')) {
+        const patternBounds = calculatePatternBounds(element, finalBounds, fillValue, debug)
+        if (patternBounds) {
+          finalBounds = patternBounds
+        }
       }
 
       if (debug) {
@@ -611,6 +620,52 @@ window.BoundsCalculator = (function () {
     }
 
     return markerBounds
+  }
+
+  /**
+   * Calculate bounds for an element with pattern fill
+   * @param {Element} element - The element with pattern fill
+   * @param {Object} baseBounds - The element's geometric bounds
+   * @param {string} fillValue - The fill attribute value
+   * @param {boolean} debug - Enable debug logging
+   * @returns {Object|null} Adjusted bounds or null if no pattern
+   */
+  function calculatePatternBounds (element, baseBounds, fillValue, debug = false) {
+    // Check if PatternAnalyzer is available
+    if (typeof window.PatternAnalyzer === 'undefined') {
+      if (debug) {
+        console.log('PatternAnalyzer not available')
+      }
+      return null
+    }
+
+    const patternAnalyzer = new window.PatternAnalyzer()
+    const patternElement = patternAnalyzer.getPatternFromFill(fillValue, document)
+    
+    if (!patternElement) {
+      return null
+    }
+
+    // Analyze pattern content
+    const patternAnalysis = patternAnalyzer.analyzePattern(
+      patternElement,
+      { getElementBounds }, // Pass reference to this module's bounds calculator
+      debug
+    )
+
+    // Calculate adjusted bounds
+    const adjustedBounds = patternAnalyzer.calculatePatternFilledBounds(
+      element,
+      baseBounds,
+      patternAnalysis,
+      debug
+    )
+
+    if (debug && patternAnalysis.hasOverflow) {
+      console.log(`  Pattern fill adjusted bounds: x=${adjustedBounds.x}, y=${adjustedBounds.y}, w=${adjustedBounds.width}, h=${adjustedBounds.height}`)
+    }
+
+    return adjustedBounds
   }
 
   // Public API

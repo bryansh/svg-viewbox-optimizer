@@ -51,7 +51,8 @@ class BrowserBundle {
       this.loadAndProcessNodeModule('svg-path-parser.js'),
       this.loadAndProcessNodeModule('animation-combiner.js'),
       this.loadAndProcessNodeModule('effects-analyzer.js'),
-      this.loadAndProcessNodeModule('transform-parser.js')
+      this.loadAndProcessNodeModule('transform-parser.js'),
+      this.loadAndProcessNodeModule('pattern-analyzer.js')
     ]
 
     return Promise.all(modulePromises)
@@ -115,8 +116,9 @@ class BrowserBundle {
     processedCode = processedCode.replace(/const \{ calculatePathBounds, calculateMotionValuesBounds \} = require\('.*'\)/g, '')
 
     // Replace module.exports with window assignments for browser compatibility
-    processedCode = processedCode.replace(/module\.exports = \{([^}]*)\}/g, (match, exports) => {
-      // Extract function names from exports
+    // Handle both direct exports and conditional exports
+    processedCode = processedCode.replace(/(?:if \(typeof module !== 'undefined' && module\.exports\) \{\s*)?module\.exports = \{([^}]*)\}(?:\s*\})?/g, (match, exports) => {
+      // Extract function/class names from exports
       const functionNames = exports.split(',').map(name => name.trim()).filter(name => name)
 
       // Create window assignments - group by module

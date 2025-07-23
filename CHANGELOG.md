@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.1] - 2025-07-23
+
+### Added
+- **Pattern Visual Bounds Support**:
+  - New pattern analyzer module that detects pattern content extending beyond pattern tiles
+  - Automatic bounds expansion for elements with pattern fills that have visual overflow
+  - Handles complex patterns with multiple elements, transforms, and opacity
+  - Supports asymmetric pattern overflow (different overflow on each edge)
+  - Added comprehensive test suite with 7 test cases covering various pattern scenarios
+  - Performance optimized - only analyzes patterns when fill contains url() references
+
+### Fixed
+- Test suite reliability improvements:
+  - Excluded timing-sensitive tests (text-webfont.test.js, foreign-object-timing.test.js) from CI
+  - Fixed cross-platform test command syntax for Windows compatibility
+  - Added separate test scripts for running excluded tests locally
+
+### Technical Details
+- Added `pattern-analyzer.js` module with visual bounds calculation
+- Integrated pattern analysis into bounds calculator
+- Enhanced browser bundle to include pattern analyzer
+- Total test count increased from 189 to 196 tests
+- CI tests reduced to 183 tests (excluding timing-sensitive tests)
+
 ## [1.4.0] - 2025-07-22
 
 ### Added
