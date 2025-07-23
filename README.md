@@ -325,13 +325,19 @@ node index.js examples/symbol-library.svg --debug
 The project includes comprehensive test coverage with different test suites:
 
 ```bash
-# Run standard tests (excludes performance tests)
+# Run standard tests (excludes timing-sensitive and external dependency tests)
 npm test
 
-# Run all tests including performance tests  
+# Run all tests including timing-sensitive tests  
 npm run test:all
 
-# Run only performance/timing tests (skipped in CI)
+# Run timing-sensitive tests (web fonts, foreign object timing)
+npm run test:timing
+
+# Run only web font tests
+npm run test:webfont
+
+# Run only performance/timing tests
 npm run test:perf
 
 # Run linting
@@ -339,9 +345,13 @@ npm run lint
 ```
 
 **Test Structure:**
-- **Functional tests**: Core SVG processing, feature detection, bounds calculation
-- **Performance tests**: Timing validation and benchmarks (automatically skipped in CI environments)
+- **Functional tests**: Core SVG processing, feature detection, bounds calculation (173 tests)
+- **Web font tests**: Text rendering with external fonts (8 tests - excluded from CI)
+- **Foreign object timing tests**: HTML layout timing with external resources (excluded from CI)
+- **Performance tests**: Timing validation and benchmarks (excluded from CI)
 - **189 total test cases** with comprehensive coverage of edge cases and advanced SVG features
+
+**Note**: Tests with external dependencies (Google Fonts) or timing sensitivities are excluded from CI to ensure reliable builds.
 
 ## Contributing
 

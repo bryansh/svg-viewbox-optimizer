@@ -7,8 +7,10 @@
     "svg-optimize": "./index.js"
   },
   "scripts": {
-    "test": "jest --testPathIgnorePatterns=performance.test.js",
+    "test": "jest --testPathIgnorePatterns='performance.test.js|text-webfont.test.js|foreign-object-timing.test.js'",
     "test:all": "jest",
+    "test:timing": "jest --testNamePattern='timing|webfont' text-webfont.test.js foreign-object-timing.test.js",
+    "test:webfont": "jest text-webfont.test.js",
     "test:perf": "jest performance.test.js",
     "test:sample": "node index.js examples/thunderstorms-overcast.svg",
     "lint": "standard",
