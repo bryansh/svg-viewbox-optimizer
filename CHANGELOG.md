@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.2] - 2025-07-23
+
+### Added
+- **Symbol ViewBox Coordinate Transformations**:
+  - Complete support for `<symbol>` elements with their own `viewBox` and `preserveAspectRatio` attributes
+  - Accurate coordinate system transformations for `<use>` elements referencing symbols
+  - Support for all preserveAspectRatio modes: `meet`, `slice`, `none` with proper scaling calculations
+  - Full alignment support: all nine alignment modes (xMinYMin, xMidYMid, xMaxYMax, etc.)
+  - Handles nested symbol coordinate systems with proper bounds transformation
+  - Added comprehensive test suite with 10 test cases covering various symbol scenarios
+
+### Technical Details
+- Added `symbol-viewbox-analyzer.js` module for coordinate transformation analysis
+- Enhanced bounds calculator with dedicated `getUseElementBounds()` function
+- Integrated symbol analysis into browser bundle
+- Total test count increased from 196 to 206 tests
+
 ## [1.4.1] - 2025-07-23
 
 ### Added

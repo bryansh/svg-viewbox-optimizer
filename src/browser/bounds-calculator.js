@@ -25,6 +25,11 @@ window.BoundsCalculator = (function () {
       return getForeignObjectBounds(element, debug)
     }
 
+    // Handle use elements that may reference symbols with viewBox
+    if (tagName === 'use') {
+      return getUseElementBounds(element, debug)
+    }
+
     // Handle elements that don't support getBBox or need special processing
     if (tagName === 'svg' || !element.getBBox || isInsideSwitch) {
       return getElementBoundsFromAttributes(element, tagName, debug)
@@ -620,6 +625,121 @@ window.BoundsCalculator = (function () {
     }
 
     return markerBounds
+  }
+
+  /**
+   * Calculate bounds for use elements, handling symbol viewBox transformations
+   * @param {Element} useElement - The use element
+   * @param {boolean} debug - Enable debug logging
+   * @returns {Object} Bounds object with x, y, width, height
+   */
+  function getUseElementBounds (useElement, debug = false) {
+    // Check if SymbolViewBoxAnalyzer is available
+    if (typeof window.SymbolViewBoxAnalyzer === 'undefined') {
+      if (debug) {
+        console.log('SymbolViewBoxAnalyzer not available, using getBBox fallback')
+      }
+      // Fallback to standard getBBox
+      try {
+        return useElement.getBBox()
+      } catch (e) {
+        return { x: 0, y: 0, width: 0, height: 0 }
+      }
+    }
+
+    const analyzer = new window.SymbolViewBoxAnalyzer()
+    const referencedSymbol = analyzer.getReferencedSymbol(useElement, document)
+    
+    if (!referencedSymbol) {
+      if (debug) {
+        console.log('Use element does not reference a symbol, using getBBox')
+      }
+      // Not referencing a symbol, use standard bounds
+      try {
+        return useElement.getBBox()
+      } catch (e) {
+        return { x: 0, y: 0, width: 0, height: 0 }
+      }
+    }
+
+    // Analyze symbol viewBox transformation
+    const symbolAnalysis = analyzer.analyzeSymbolViewBox(
+      useElement,
+      referencedSymbol,
+      { getElementBounds }, // Pass reference to this module's bounds calculator
+      debug
+    )
+
+    if (!symbolAnalysis.hasViewBox) {
+      if (debug) {
+        console.log('Symbol has no viewBox, using standard getBBox')
+      }
+      // Symbol has no viewBox, use standard bounds
+      try {
+        return useElement.getBBox()
+      } catch (e) {
+        return { x: 0, y: 0, width: 0, height: 0 }
+      }
+    }
+
+    // Calculate bounds by analyzing symbol content with coordinate transformation
+    const symbolChildren = Array.from(referencedSymbol.children)
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    let hasContent = false
+
+    for (const child of symbolChildren) {
+      if (child.tagName.toLowerCase() === 'desc' || 
+          child.tagName.toLowerCase() === 'title' ||
+          child.tagName.toLowerCase() === 'metadata') {
+        continue
+      }
+
+      // Get child bounds within symbol coordinate system
+      const childBounds = getElementBounds(child, debug)
+      if (childBounds.width > 0 && childBounds.height > 0) {
+        // Transform child bounds to document coordinates
+        const transformedBounds = analyzer.transformSymbolElementBounds(
+          childBounds,
+          symbolAnalysis,
+          debug
+        )
+
+        hasContent = true
+        minX = Math.min(minX, transformedBounds.x)
+        minY = Math.min(minY, transformedBounds.y)
+        maxX = Math.max(maxX, transformedBounds.x + transformedBounds.width)
+        maxY = Math.max(maxY, transformedBounds.y + transformedBounds.height)
+
+        if (debug) {
+          console.log(`  Symbol child ${child.tagName}: original(${childBounds.x},${childBounds.y},${childBounds.width},${childBounds.height}) -> transformed(${transformedBounds.x},${transformedBounds.y},${transformedBounds.width},${transformedBounds.height})`)
+        }
+      }
+    }
+
+    if (!hasContent) {
+      return {
+        x: symbolAnalysis.useX,
+        y: symbolAnalysis.useY,
+        width: symbolAnalysis.useWidth,
+        height: symbolAnalysis.useHeight
+      }
+    }
+
+    const finalBounds = {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    }
+
+    if (debug) {
+      console.log(`  Use element final bounds: (${finalBounds.x},${finalBounds.y},${finalBounds.width},${finalBounds.height})`)
+    }
+
+    return finalBounds
   }
 
   /**

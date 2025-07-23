@@ -8,7 +8,7 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 
 - 🎯 **Precise bounds calculation** using browser's native `getBBox()` API with visual overflow detection
 - 🎬 **Animation-aware** - accounts for animated elements' motion paths
-- 🔍 **Smart symbol handling** - correctly processes `<use>` elements and nested symbols
+- 🔍 **Smart symbol handling** - correctly processes `<use>` elements with full viewBox coordinate transformation
 - 🔧 **Advanced transform support** - handles translate, scale, rotate, skew, and matrix transforms on ALL elements
 - 🎨 **Pattern visual bounds** - detects and includes pattern content that extends beyond pattern tiles
 - 🎭 **Generic container detection** - automatically identifies and processes container vs. content elements
@@ -25,7 +25,7 @@ A command-line tool that optimizes SVG viewBox attributes by calculating the min
 - 🌐 **ForeignObject HTML layout** - Accurately measures HTML content inside `<foreignObject>` elements, accounting for overflow
 - ⏱️ **Script-generated content** - Configurable delay to capture dynamically added SVG elements via JavaScript
 - 🔤 **Web font synchronization** - Waits for web fonts to load before measuring text bounds
-- ✅ **100% test coverage** - comprehensive test suite with 196 passing tests
+- ✅ **100% test coverage** - comprehensive test suite with 206 passing tests
 
 ## Installation
 
@@ -117,8 +117,8 @@ The optimizer uses a **modular architecture** for robust SVG analysis:
 - **Images** - Embedded images with correct dimensions
 - **Groups** - g elements with nested content and transforms
 - **foreignObject** - HTML/XML content embedded in SVG
-- **use** - Symbol references with transform inheritance and positioning
-- **Symbol chains** - Deeply nested symbol references with proper positioning
+- **use** - Symbol references with complete viewBox coordinate transformation
+- **Symbol chains** - Deeply nested symbol references with proper coordinate system handling
 - **Nested SVG** - Proper coordinate system transformations with recursive processing
 - **Markers** - Arrow heads and line decorations with accurate positioning
 - **Patterns** - Pattern fills with visual overflow detection
@@ -138,6 +138,21 @@ Example: A pattern with a circle that extends beyond its tile will have its visu
 </pattern>
 <rect fill="url(#overflowPattern)" ... />
 ```
+
+### Symbol ViewBox Coordinate Transformations
+
+- **Complete viewBox support** - Handles symbols with their own coordinate systems and aspect ratio settings
+- **Accurate scaling calculations** - Properly processes `meet`, `slice`, and `none` scaling behaviors  
+- **Alignment precision** - Supports all nine alignment modes (xMinYMin, xMidYMid, etc.)
+- **Nested coordinate systems** - Correctly transforms bounds through multiple symbol layers
+
+Example: A symbol with viewBox that gets scaled by a use element:
+```xml
+<symbol id="icon" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+  <rect x="10" y="10" width="80" height="80" fill="blue"/>
+</symbol>
+<use href="#icon" x="50" y="50" width="200" height="150"/>
+<!-- Properly calculates the scaled and positioned bounds -->
 
 ### CSS and Styling Support
 
@@ -263,6 +278,7 @@ svg-viewbox-optimizer/
 │   │   ├── animation-combiner.js # Overlapping animation combination
 │   │   ├── svg-path-parser.js # SVG path data parsing with Bezier math
 │   │   ├── pattern-analyzer.js # Pattern visual bounds analysis
+│   │   ├── symbol-viewbox-analyzer.js # Symbol coordinate transformation analysis
 │   │   └── stylesheet-processor.js # External CSS inlining
 │   └── browser-bundle.js      # Module loader and browser compatibility
 └── index.js                   # CLI interface
@@ -317,6 +333,7 @@ npm test
 # ✅ SVG path parser tests
 # ✅ Marker bounds calculation tests
 # ✅ Pattern overflow and visual bounds tests
+# ✅ Symbol viewBox coordinate transformation tests
 # ✅ preserveAspectRatio support tests
 # ✅ Event-triggered animation tests
 # ✅ External stylesheet tests
@@ -365,11 +382,11 @@ npm run lint
 ```
 
 **Test Structure:**
-- **Functional tests**: Core SVG processing, feature detection, bounds calculation, pattern overflow (183 tests)
+- **Functional tests**: Core SVG processing, feature detection, bounds calculation, pattern overflow, symbol viewBox (193 tests)
 - **Web font tests**: Text rendering with external fonts (8 tests - excluded from CI)
 - **Foreign object timing tests**: HTML layout timing with external resources (excluded from CI)
 - **Performance tests**: Timing validation and benchmarks (excluded from CI)
-- **196 total test cases** with comprehensive coverage of edge cases and advanced SVG features
+- **206 total test cases** with comprehensive coverage of edge cases and advanced SVG features
 
 **Note**: Tests with external dependencies (Google Fonts) or timing sensitivities are excluded from CI to ensure reliable builds.
 
