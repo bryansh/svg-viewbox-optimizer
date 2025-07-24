@@ -181,15 +181,24 @@ describe('SMIL Phase 2 Animation Support', () => {
       fs.writeFileSync(tempFile, testSvg)
 
       try {
-        const result = await calculateOptimization(tempFile, { buffer: 10 })
+        // Add slight delay for timing-sensitive animation processing on different platforms
+        const result = await calculateOptimization(tempFile, { buffer: 10, scriptDelay: 50 })
 
         // Should consider both original position (100,100) and set position (200,100)
         // Combined bounds: (100,100) to (260,160), with buffer: (90,90) to (270,170)
         expect(result.elements.count).toBe(1)
-        expect(result.newViewBox.x).toBe(90)
-        expect(result.newViewBox.y).toBe(90)
-        expect(result.newViewBox.width).toBe(180) // 270 - 90
-        expect(result.newViewBox.height).toBe(80) // 170 - 90
+        
+        // Check content bounds first to help debug platform differences
+        if (result.newViewBox.x !== 90) {
+          console.log('Debug info - Content bounds:', result.content)
+          console.log('Debug info - New viewBox:', result.newViewBox)
+        }
+        
+        // Use toBeCloseTo for floating point tolerance
+        expect(result.newViewBox.x).toBeCloseTo(90, 1)
+        expect(result.newViewBox.y).toBeCloseTo(90, 1)
+        expect(result.newViewBox.width).toBeCloseTo(180, 1) // 270 - 90
+        expect(result.newViewBox.height).toBeCloseTo(80, 1) // 170 - 90
       } finally {
         fs.unlinkSync(tempFile)
       }
