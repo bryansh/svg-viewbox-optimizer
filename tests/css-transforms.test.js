@@ -38,7 +38,7 @@ describe('CSS Transform Support', () => {
   <circle cx="30" cy="30" r="15" fill="red" class="translated"/>
 </svg>`
 
-      const tempFile = path.join(__dirname, 'temp-css-translate.svg')
+      const tempFile = path.join(__dirname, 'temp-css-transform-translate.svg')
       fs.writeFileSync(tempFile, testSvg)
 
       try {
@@ -64,7 +64,7 @@ describe('CSS Transform Support', () => {
   <rect x="60" y="60" width="20" height="20" fill="green" class="scaled"/>
 </svg>`
 
-      const tempFile = path.join(__dirname, 'temp-css-scale.svg')
+      const tempFile = path.join(__dirname, 'temp-css-transform-scale.svg')
       fs.writeFileSync(tempFile, testSvg)
 
       try {
@@ -88,7 +88,7 @@ describe('CSS Transform Support', () => {
   <rect x="30" y="30" width="20" height="10" fill="purple" class="rotated"/>
 </svg>`
 
-      const tempFile = path.join(__dirname, 'temp-css-rotate.svg')
+      const tempFile = path.join(__dirname, 'temp-css-transform-rotate.svg')
       fs.writeFileSync(tempFile, testSvg)
 
       try {
@@ -111,7 +111,7 @@ describe('CSS Transform Support', () => {
   <rect x="40" y="40" width="25" height="25" fill="orange" class="complex"/>
 </svg>`
 
-      const tempFile = path.join(__dirname, 'temp-css-complex.svg')
+      const tempFile = path.join(__dirname, 'temp-css-transform-complex.svg')
       fs.writeFileSync(tempFile, testSvg)
 
       try {
@@ -248,7 +248,7 @@ describe('CSS Transform Support', () => {
   <rect x="40" y="40" width="30" height="30" fill="red" style="transform: none"/>
 </svg>`
 
-      const tempFile = path.join(__dirname, 'temp-css-none.svg')
+      const tempFile = path.join(__dirname, 'temp-css-transform-none.svg')
       fs.writeFileSync(tempFile, testSvg)
 
       try {

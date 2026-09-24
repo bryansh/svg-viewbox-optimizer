@@ -37,7 +37,7 @@ window.BoundsCalculator = (function () {
 
     // For animated elements, getBBox() can return different values depending on
     // the current animation state. Use base geometry attributes when available.
-    const hasAnimations = element.querySelector('animateTransform, animate, animateMotion') !== null
+    const hasAnimations = element.querySelector('animateTransform, animate, animateMotion, set') !== null
 
     if (hasAnimations && (tagName === 'rect' || tagName === 'circle' || tagName === 'ellipse')) {
       if (tagName === 'rect') {

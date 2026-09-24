@@ -197,7 +197,7 @@ window.SVGAnalyzer = (function () {
       const bounds = window.BoundsCalculator.getElementBounds(element, debug)
 
       // Skip elements with zero dimensions unless they have animations
-      const hasAnimations = element.querySelector('animateTransform, animate, animateMotion') !== null
+      const hasAnimations = element.querySelector('animateTransform, animate, animateMotion, set') !== null
       if ((bounds.width === 0 || bounds.height === 0) && !hasAnimations) {
         if (debug) {
           console.log(`  Skipping ${tagName} with zero dimensions and no animations`)
@@ -754,7 +754,7 @@ window.SVGAnalyzer = (function () {
         animations = window.findElementAnimations(element, svg, debug)
       } else {
         // Fallback to simple SVG animation detection
-        const animationElements = element.querySelectorAll('animateTransform, animate, animateMotion')
+        const animationElements = element.querySelectorAll('animateTransform, animate, animateMotion, set')
         animationElements.forEach(anim => {
           if (anim.parentElement === element) {
             animations.push({

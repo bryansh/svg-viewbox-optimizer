@@ -220,7 +220,7 @@ function parseTransform (transformString) {
 function getElementTransform (element) {
   // For animated elements, computed CSS transform reflects animation state
   // which varies over time. Skip CSS transform checking for these elements.
-  const hasAnimations = element.querySelector('animateTransform, animate, animateMotion') !== null
+  const hasAnimations = element.querySelector('animateTransform, animate, animateMotion, set') !== null
 
   // Also check for CSS animations by looking at computed style
   let hasCSSAnimations = false
